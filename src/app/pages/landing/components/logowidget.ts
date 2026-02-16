@@ -1,5 +1,6 @@
+import { LayoutService } from '@/layout/service/layout.service';
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
+import { Component, computed, inject, Input } from '@angular/core';
 
 @Component({
   selector: 'logo-widget',
@@ -7,18 +8,18 @@ import { Component, Input } from '@angular/core';
   imports: [CommonModule],
   template: ` <div class="flex items-center gap-3 group cursor-pointer">
     <div
-      class="w-10 h-10 rounded-xl bg-linear-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 group-hover:scale-110 transition-transform duration-300"
+      class="w-10 h-10 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300"
     >
-      <i class="pi pi-table text-xl"></i>
+      <img [src]="logoSrc()" alt="Logo" class="w-full h-full object-contain" />
     </div>
-    <span
-      class="text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-linear-to-r from-surface-900 to-surface-600 dark:from-white dark:to-surface-400"
-    >
-      Keep Quality
-    </span>
   </div>`,
 })
 export class LogoWidget {
-  @Input() className: string = '';
-  @Input() reverseTheme: boolean = false;
+  private readonly layoutService = inject(LayoutService);
+
+  readonly logoSrc = computed(() => {
+    return this.layoutService.isDarkTheme()
+      ? '/layout/images/logo-dark.svg'
+      : '/layout/images/logo-light.svg';
+  });
 }

@@ -34,82 +34,13 @@ export class AppMenu {
       ],
     },
     {
-      label: 'Worksheets',
+      label: 'CSV',
       icon: 'pi pi-th-large',
       items: [
         {
-          label: 'Instrumental Analysis',
-          icon: 'pi pi-fw pi-chart-bar',
-          routerLink: ['/worksheets/instrumental'],
-        },
-        {
-          label: 'Dissolution',
-          icon: 'pi pi-fw pi-filter',
-          routerLink: ['/worksheets/dissolution'],
-          visible: false,
-        },
-        {
-          label: 'Volumetry',
-          icon: 'pi pi-fw pi-gauge',
-          routerLink: ['/worksheets/volumetry'],
-          visible: false,
-        },
-        {
-          label: 'Average Weight',
-          icon: 'pi pi-fw pi-file',
-          routerLink: ['/worksheets/average-weight'],
-          visible: false,
-        },
-      ],
-    },
-    {
-      label: 'Vitalis',
-      icon: 'pi pi-fw pi-building',
-      items: [
-        {
-          label: 'Bases de Datos',
-          icon: 'pi pi-fw pi-database',
-          // visible: await this.authService.checkPermissionAsync(['bases_datos']),
-          items: [
-            {
-              label: 'Muestras FQ',
-              icon: 'pi pi-fw pi-database',
-              routerLink: ['/vit/bases-datos/muestras-fq'],
-              // visible: await this.authService.checkPermissionAsync(['bases_datos.fq']),
-            },
-            {
-              label: 'Microbiología',
-              icon: 'pi pi-fw pi-folder',
-              // visible: await this.authService.checkPermissionAsync(['bases_datos.mb']),
-              items: [
-                {
-                  label: 'Planes de Trabajo MB',
-                  icon: 'pi pi-fw pi-database',
-                  routerLink: ['/vit/bases-datos/planes-trabajo-mb'],
-                  // visible: await this.authService.checkPermissionAsync(['bases_datos.mb.muestras']),
-                },
-                {
-                  label: 'Muestras MB',
-                  icon: 'pi pi-fw pi-database',
-                  routerLink: ['/vit/bases-datos/muestras-mb'],
-                  // visible: await this.authService.checkPermissionAsync(['bases_datos.mb.muestras']),
-                },
-                {
-                  label: 'Especificaciones MB',
-                  icon: 'pi pi-fw pi-database',
-                  routerLink: ['/vit/bases-datos/especificaciones-mb'],
-                  // visible: await this.authService.checkPermissionAsync([
-                  //   'bases_datos.mb.especificaciones',
-                  // ]),
-                },
-              ],
-            },
-            {
-              label: 'Muestras ME',
-              icon: 'pi pi-fw pi-database',
-              // visible: await this.authService.checkPermissionAsync(['bases_datos.me']),
-            },
-          ],
+          label: 'Computerized Systems',
+          icon: 'pi pi-fw pi-desktop',
+          routerLink: ['/csv'],
         },
       ],
     },

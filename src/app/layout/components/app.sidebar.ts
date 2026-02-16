@@ -11,10 +11,11 @@ import { LayoutService } from '@/layout/service/layout.service';
 import { RouterModule } from '@angular/router';
 import { AppTopbar } from '@/layout/components/app.topbar';
 import { CommonModule } from '@angular/common';
+import { LogoWidget } from '@/pages/landing/components/logowidget';
 
 @Component({
   selector: '[app-sidebar]',
-  imports: [CommonModule, AppMenu, RouterModule, AppTopbar],
+  imports: [CommonModule, AppMenu, RouterModule, AppTopbar, LogoWidget],
   template: `<div
     class="layout-sidebar"
     (mouseenter)="onMouseEnter()"
@@ -22,16 +23,7 @@ import { CommonModule } from '@angular/common';
   >
     <div class="sidebar-header">
       <a class="logo flex items-center" [routerLink]="['/']">
-        <div
-          class="logo-image w-10 h-10 rounded-xl bg-linear-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20"
-        >
-          <i class="pi pi-table text-xl"></i>
-        </div>
-        <span
-          class="app-name text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-linear-to-r from-surface-900 to-surface-600 dark:from-white dark:to-surface-400"
-        >
-          Keep Quality
-        </span>
+        <logo-widget />
       </a>
       <button class="layout-sidebar-anchor z-2" type="button" (click)="anchor()"></button>
     </div>
