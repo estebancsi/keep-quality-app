@@ -1,0 +1,18 @@
+{
+  "apiUrl": "${API_URL}",
+  "apiReportsUrl": "${API_REPORTS_URL}",
+  "production": "${PRODUCTION}",
+  "logLevel": "${LOG_LEVEL}",
+  "oidc": {
+    "authority": "${OIDC_AUTHORITY}",
+    "clientId": "${OIDC_CLIENT_ID}",
+    "scope": "${OIDC_SCOPE}"
+  },
+  "idp": {
+    "projectId": "${IDP_PROJECT_ID}"
+  },
+  "supabase": {
+    "url": "${SUPABASE_URL}",
+    "key": "${SUPABASE_KEY}"
+  }
+}

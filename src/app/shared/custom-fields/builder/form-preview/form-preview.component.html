@@ -1,0 +1,40 @@
+<div class="form-preview">
+  @if (schema(); as schema) {
+  <div class="preview-content">
+    @for (group of groupedFields; track group.group?.name || 'ungrouped') {
+    <div class="preview-group">
+      @if (group.group) {
+      <h3 class="group-title">{{ group.group.label }}</h3>
+      } @else {
+      <h3 class="group-title">Ungrouped Fields</h3>
+      }
+
+      <div class="preview-fields">
+        @for (field of group.fields; track field.name) {
+        <div class="preview-field" (click)="onFieldClick(field)">
+          <div class="field-header">
+            <span class="field-label">{{ field.label }}</span>
+            @if (field.required) {
+            <span class="required-indicator">*</span>
+            }
+          </div>
+          <div class="field-type">
+            {{ getFieldTypeLabel(field.type) }}
+            @if (field.config) {
+            <span class="field-details">
+              {{ getDisplayValue(field) }}
+            </span>
+            }
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+    }
+  </div>
+  } @else {
+  <div class="empty-preview">
+    <p>No schema loaded</p>
+  </div>
+  }
+</div>

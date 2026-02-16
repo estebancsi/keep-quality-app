@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    ports:
+      - '8080:80'
+    environment:
+      - API_URL=http://api.docker.internal
+      - OIDC_AUTHORITY=http://zitadel:8080
+      - OIDC_CLIENT_ID=my-client-id
+      - OIDC_SCOPE=openid profile email

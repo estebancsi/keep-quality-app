@@ -1,0 +1,37 @@
+<div class="hero-banner">
+  <div class="hero-background">
+    <img [src]="coverImage()" alt="VPS LATAM" class="hero-image" />
+    <div class="hero-overlay"></div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-text">
+      <h1 class="hero-greeting">{{ getGreeting() }}, {{ userName() }}</h1>
+      <p class="hero-subtitle">Bienvenido a tu panel de control</p>
+    </div>
+
+    <div class="hero-actions">
+      <p-button
+        label="Nuevo Proyecto"
+        icon="pi pi-plus"
+        [routerLink]="['/vsc/proyectos/new']"
+        styleClass="p-button-rounded"
+        severity="primary"
+      />
+      <p-button
+        label="Ver Reportes"
+        icon="pi pi-chart-bar"
+        [routerLink]="['/vsc']"
+        styleClass="p-button-rounded p-button-outlined"
+        severity="secondary"
+      />
+      <p-button
+        label="Calendario"
+        icon="pi pi-calendar"
+        [routerLink]="['/calendar']"
+        styleClass="p-button-rounded p-button-outlined"
+        severity="secondary"
+      />
+    </div>
+  </div>
+</div>

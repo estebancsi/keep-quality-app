@@ -1,0 +1,179 @@
+@if (editedField(); as f) {
+  <div class="field-editor">
+    <!-- Field Header -->
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-gray-900">Edit Field</h2>
+      <button
+        (click)="deleteField()"
+        class="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+      >
+        Delete Field
+      </button>
+    </div>
+
+    <!-- Basic Field Properties -->
+    <div class="space-y-4 mb-6">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Field Name (internal)</label>
+        <input
+          type="text"
+          [(ngModel)]="f.name"
+          (blur)="updateField()"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g., project_priority"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Field Label (display)</label>
+        <input
+          type="text"
+          [(ngModel)]="f.label"
+          (blur)="updateField()"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g., Project Priority"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Field Type</label>
+        <select
+          [(ngModel)]="f.type"
+          (change)="onFieldTypeChange(f.type)"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          @for (fieldType of fieldTypes; track fieldType.value) {
+            <option [value]="fieldType.value">{{ fieldType.icon }} {{ fieldType.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <label class="flex items-center">
+          <input type="checkbox" [(ngModel)]="f.required" (change)="updateField()" class="mr-2" />
+          <span class="text-sm text-gray-700">Required field</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Type-Specific Configuration -->
+    <div class="space-y-6 mb-6">
+      @switch (f.type) {
+        <!-- Text Field Configuration -->
+        @case ('TEXT') {
+          <app-text-field-configurator
+            [field]="getTextField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-text-field-configurator>
+        }
+        <!-- Long Text Field Configuration -->
+        @case ('LONG_TEXT') {
+          <app-long-text-field-configurator
+            [field]="getLongTextField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-long-text-field-configurator>
+        }
+        <!-- Integer Field Configuration -->
+        @case ('INTEGER') {
+          <app-integer-field-configurator
+            [field]="getIntegerField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-integer-field-configurator>
+        }
+        <!-- Boolean Field Configuration -->
+        @case ('BOOLEAN') {
+          <app-boolean-field-configurator
+            [field]="getBooleanField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-boolean-field-configurator>
+        }
+        <!-- List Field Configuration -->
+        @case ('LIST') {
+          <app-list-field-configurator
+            [field]="getListField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-list-field-configurator>
+        }
+        <!-- Date Field Configuration -->
+        @case ('DATE') {
+          <app-date-field-configurator
+            [field]="getDateField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-date-field-configurator>
+        }
+        <!-- DateTime Field Configuration -->
+        @case ('DATETIME') {
+          <app-datetime-field-configurator
+            [field]="getDateTimeField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-datetime-field-configurator>
+        }
+        <!-- Time Field Configuration -->
+        @case ('TIME') {
+          <app-time-field-configurator
+            [field]="getTimeField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-time-field-configurator>
+        }
+        <!-- User Field Configuration -->
+        @case ('USER') {
+          <app-user-field-configurator
+            [field]="getUserField()"
+            (fieldUpdated)="onFieldConfigUpdated($event)"
+          >
+          </app-user-field-configurator>
+        }
+      }
+    </div>
+
+    <!-- Common Properties -->
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Placeholder</label>
+        <input
+          type="text"
+          [(ngModel)]="f.placeholder"
+          (blur)="updateField()"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Help Text</label>
+        <textarea
+          [(ngModel)]="f.helpText"
+          (blur)="updateField()"
+          rows="2"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Help text to display below the field"
+        ></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <textarea
+          [(ngModel)]="f.description"
+          (blur)="updateField()"
+          rows="2"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Internal description"
+        ></textarea>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- No Field Selected -->
+@if (!editedField()) {
+  <div class="text-center py-8 text-gray-500">
+    <p>No field selected</p>
+  </div>
+}

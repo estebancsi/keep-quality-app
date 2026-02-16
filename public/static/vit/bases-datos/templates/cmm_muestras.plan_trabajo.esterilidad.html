@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formato de Microbiología</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 7px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      th,
+      td {
+        border: 1px solid #000;
+        padding: 2px;
+        text-align: center;
+        vertical-align: middle;
+        word-wrap: break-word;
+      }
+
+      .header-row th {
+        background-color: #90ee90;
+        font-weight: bold;
+        font-size: 6px;
+        height: 120px;
+        position: relative;
+      }
+
+      .header-row th div {
+        transform: rotate(-90deg);
+        transform-origin: center center;
+        white-space: nowrap;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) rotate(-90deg);
+        width: 120px;
+      }
+
+      .section-header {
+        background-color: #90ee90;
+        font-weight: bold;
+        writing-mode: horizontal-tb;
+      }
+
+      .data-row td {
+        background-color: #d3d3d3;
+        height: 25px;
+      }
+
+      .watermark {
+        position: relative;
+      }
+
+      .watermark::before {
+        content: 'Copia Controlada';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 80px;
+        color: rgba(128, 128, 128, 0.3);
+        font-weight: bold;
+        z-index: 1;
+        white-space: nowrap;
+      }
+
+      .footer-section {
+        margin-top: 10px;
+        font-size: 8px;
+        padding: 10px;
+      }
+
+      .footer-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+
+      .footer-item {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <table>
+      <thead>
+        <tr class="header-row">
+          <th colspan="2" rowspan="2" class="section-header">REACTIVOS/MATERIALES</th>
+          <th><div>A.O SERVICIO (UEB)</div></th>
+          <th><div>FECHA DE ANÁLISIS</div></th>
+          <th><div>MUESTRA/MATERIAL</div></th>
+          <th><div>LOTE SAP</div></th>
+          <th><div>LOTE INSPECCIÓN</div></th>
+          <th><div>PLANTA</div></th>
+          <th><div>TÉCNICA ENSAYO/MÉTODO DE LAB.</div></th>
+          <th><div>SUBDIVISIÓN DEL REACTIVO DE LAB.</div></th>
+          <th><div>DILUCIONES DE TRABAJO</div></th>
+          <th><div>PREPARACIÓN DE LA DILUCIÓN</div></th>
+          <th><div>CANTIDAD DE LAB. (μl)</div></th>
+          <th><div>CANTIDAD ESTD.</div></th>
+          <th><div>TEMPERATURA DE ANÁLISIS</div></th>
+          <th><div>T. DE INCUBACIÓN</div></th>
+          <th><div>RPM MIXTO</div></th>
+          <th><div>RPM FINAL</div></th>
+          <th><div>LOTE P./ REACTIVO PROTOCOLO</div></th>
+          <th><div>LOTE P./ REACTIVO GLUCOSADO</div></th>
+          <th><div>LOTE P.V BUFFER</div></th>
+          <th><div>LOTE AGUA LAB.</div></th>
+          <th><div>LOTE P/C CONTROL ESTÁNDAR E DOTIVIMIX</div></th>
+          <th><div>CONCENTIVO ALINEACIÓN ROTULO</div></th>
+          <th><div>LOTE P./ PINTAS (A 450)</div></th>
+          <th><div>LOTE P./ RÁPIDA AGRANOS</div></th>
+          <th><div>LOTE P./ FRASCO LAPA GRANOS</div></th>
+          <th><div>LOTE P.V TUBOS X MICROFOROS</div></th>
+          <th><div>TERMOMETRO (T.I 420)</div></th>
+          <th><div>BAÑO (T420)</div></th>
+          <th><div>VORTEX (SAP-020)</div></th>
+          <th><div>MICROPIPETA (MBP-452)</div></th>
+          <th><div>MICROPIPETA (MBP-452)</div></th>
+          <th><div>MICROPETA</div></th>
+          <th><div>PIPETA ISO</div></th>
+          <th><div>LECTOR OCHOA-UP</div></th>
+          <th><div>LAPTOP ISO</div></th>
+          <th colspan="2" rowspan="2" class="section-header">REPETICIONES</th>
+          <th><div>pH (P%-2)</div></th>
+          <th><div>MUESTRA N.1</div></th>
+          <th><div>MUESTRA N.2</div></th>
+          <th colspan="2" rowspan="2" class="section-header">CONTROLES</th>
+          <th><div>CONTROL (+)</div></th>
+          <th><div>CONTROL (-)</div></th>
+          <th><div>TUBOS APROBADOS</div></th>
+          <th><div>BUNTES TEQUILA</div></th>
+          <th><div>PINTAS E.S (M)</div></th>
+          <th><div>FRACEOS JARCFOROS</div></th>
+          <th><div>AGUJA CARCERA</div></th>
+          <th><div>LIMITE DE REPETÓNES</div></th>
+          <th><div>RESULTADO</div></th>
+          <th><div>CONCEPTO RESULTADO (No ha cumple)</div></th>
+        </tr>
+      </thead>
+      <tbody class="watermark">
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+        <tr class="data-row">
+          <td colspan="59">&nbsp;</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer-section">
+      <p><strong>Observaciones:</strong></p>
+      <br /><br />
+      <p>Se genera RX:E-S? ___ NO ___ No de RX:E _______________</p>
+      <br /><br />
+      <div class="footer-row">
+        <div class="footer-item">
+          <p><strong>Realizado por:</strong> ________________________________</p>
+          <p style="text-align: center; margin-top: 5px">ANALISTA DE MICROBIOLOGIA</p>
+        </div>
+        <div class="footer-item" style="text-align: center">
+          <p><strong>Leído por:</strong> ________________________________</p>
+          <p style="text-align: center; margin-top: 5px">ANALISTA DE MICROBIOLOGIA</p>
+        </div>
+        <div class="footer-item" style="text-align: right">
+          <p><strong>Verificado por:</strong> ________________________________</p>
+          <p style="text-align: center; margin-top: 5px">JEFE DE MICROBIOLOGIA</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

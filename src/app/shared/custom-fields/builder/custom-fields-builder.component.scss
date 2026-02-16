@@ -1,0 +1,163 @@
+.custom-fields-builder {
+  padding: 1rem;
+
+  .builder-header {
+    margin-bottom: 1.5rem;
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .action-button {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+
+      &.save-button {
+        background-color: #2563eb;
+        color: white;
+
+        &:hover {
+          background-color: #1d4ed8;
+        }
+
+        &:disabled {
+          background-color: #9ca3af;
+          cursor: not-allowed;
+        }
+      }
+
+      &.delete-button {
+        background-color: #dc2626;
+        color: white;
+
+        &:hover {
+          background-color: #b91c1c;
+        }
+
+        &:disabled {
+          background-color: #9ca3af;
+          cursor: not-allowed;
+        }
+      }
+
+      &.cancel-button {
+        background-color: #6b7280;
+        color: white;
+
+        &:hover {
+          background-color: #4b5563;
+        }
+      }
+    }
+
+    .error-message {
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: #dc2626;
+    }
+  }
+
+  .schema-info {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+
+      @media (min-width: 768px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .form-group {
+        label {
+          display: block;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #374151;
+          margin-bottom: 0.25rem;
+        }
+
+        input {
+          width: 100%;
+          padding: 0.5rem 0.75rem;
+          border: 1px solid #d1d5db;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+
+          &:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          }
+        }
+      }
+    }
+  }
+
+  .builder-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+
+    @media (min-width: 1024px) {
+      flex-direction: row;
+    }
+
+    .panel {
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+      border: 1px solid #e5e7eb;
+      padding: 1rem;
+
+      &.groups-panel {
+        @media (min-width: 1024px) {
+          width: 20rem;
+        }
+      }
+
+      &.editor-panel {
+        flex: 1;
+      }
+
+      &.preview-panel {
+        @media (min-width: 1024px) {
+          width: 24rem;
+        }
+      }
+
+      .panel-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 1rem;
+      }
+    }
+  }
+
+  .loading-state {
+    text-align: center;
+    padding: 2rem 0;
+  }
+}
