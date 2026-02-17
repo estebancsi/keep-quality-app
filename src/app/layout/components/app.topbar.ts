@@ -46,7 +46,7 @@ interface NotificationsBars {
       <a tabindex="0" #menubutton type="button" class="menu-button" (click)="onMenuButtonClick()">
         <i class="pi pi-chevron-left"></i>
       </a>
-      <img class="horizontal-logo" src="/layout/images/logo-white.svg" alt="diamond-layout" />
+      <img class="horizontal-logo" src="/layout/images/logo-light.svg" alt="keep-quality" />
       <span class="topbar-separator"></span>
       <div app-breadcrumb></div>
       <img

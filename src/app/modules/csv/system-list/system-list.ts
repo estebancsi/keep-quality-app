@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
   effect,
   inject,
   signal,
@@ -9,7 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ConfirmationService, MessageService } from 'primeng/api';
+import { ConfirmationService } from 'primeng/api';
 import { TableModule, Table, TableLazyLoadEvent } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -25,7 +24,6 @@ import {
   computeRiskLevel,
   CsvCategory,
   LIFECYCLE_STATUS_OPTIONS,
-  RiskLevel,
   VALIDATION_STATUS_OPTIONS,
 } from '../computerized-systems.interface';
 import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
@@ -216,7 +214,7 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
       [visible]="dialogVisible()"
       [system]="selectedSystem()"
       [categories]="categories()"
-      (visibleChange)="dialogVisible.set($event)"
+      (visibleChange)="onDialogVisibleChange($event)"
       (saved)="onSaved($event)"
     />
 
@@ -227,7 +225,6 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
 export class SystemList {
   private readonly csvService = inject(ComputerizedSystemsService);
   private readonly confirmationService = inject(ConfirmationService);
-  private readonly messageService = inject(MessageService);
 
   private readonly dt = viewChild<Table>('dt');
 
@@ -288,6 +285,14 @@ export class SystemList {
     if (this.lastEvent) {
       this.lastEvent.first = 0;
       this.loadSystems(this.lastEvent);
+    }
+  }
+
+  protected onDialogVisibleChange(visible: boolean): void {
+    this.dialogVisible.set(visible);
+    if (!visible) {
+      // Clear selection when closing so next open (even for same system) triggers effect
+      this.selectedSystem.set(null);
     }
   }
 
