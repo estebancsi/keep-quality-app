@@ -53,6 +53,32 @@ export class UrsService {
     );
   }
 
+  /** Persist custom field values on an existing artifact. */
+  updateArtifactCustomFields(
+    artifactId: string,
+    customFieldValues: Record<string, unknown>,
+  ): Observable<UrsArtifact> {
+    return defer(async () =>
+      this.supabase
+        .from('csv_urs_artifacts')
+        .update({ custom_field_values: customFieldValues })
+        .eq('id', artifactId)
+        .select('*')
+        .single(),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Saved',
+          detail: 'Custom fields updated',
+        });
+        return this.artifactToDomain(data as UrsArtifactDto);
+      }),
+      catchError((error) => this.handleError(error, 'Update Custom Fields')),
+    );
+  }
+
   // ─── Requirements ───────────────────────────────────
 
   loadRequirements(artifactId: string): Observable<UrsRequirement[]> {

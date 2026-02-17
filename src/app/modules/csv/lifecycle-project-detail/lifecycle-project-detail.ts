@@ -12,6 +12,11 @@ import {
   LIFECYCLE_PROJECT_STATUS_OPTIONS,
 } from '../lifecycle-project.interface';
 import { UrsRequirementsTable } from './components/urs-requirements-table';
+import { CustomFieldsRendererComponent } from '@/shared/custom-fields/renderer/custom-fields-renderer.component';
+import { CustomFieldsService } from '@/shared/custom-fields/service/custom-fields.service';
+import { CustomFieldsSchema } from '@/shared/custom-fields/types/custom-fields.types';
+import { UrsService } from '../services/urs.service';
+import { UrsArtifact } from '../urs.interface';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -22,6 +27,7 @@ import { UrsRequirementsTable } from './components/urs-requirements-table';
     TabsModule,
     ProgressSpinnerModule,
     UrsRequirementsTable,
+    CustomFieldsRendererComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -66,6 +72,27 @@ import { UrsRequirementsTable } from './components/urs-requirements-table';
             </p-tablist>
             <p-tabpanels>
               <p-tabpanel value="0">
+                <!-- Custom fields section (hidden if no schema exists) -->
+                @if (customFieldsSchema(); as schema) {
+                  <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-3">Document Properties</h3>
+                    <app-custom-fields-renderer
+                      [schema]="schema"
+                      [values]="customFieldValues()"
+                      (valuesChange)="onCustomFieldsChanged($event)"
+                    />
+                    <div class="flex justify-end mt-2">
+                      <p-button
+                        label="Save Properties"
+                        icon="pi pi-save"
+                        [loading]="savingCustomFields()"
+                        (click)="saveCustomFields()"
+                        size="small"
+                      />
+                    </div>
+                  </div>
+                }
+
                 <app-urs-requirements-table [lifecycleProjectId]="p.id" />
               </p-tabpanel>
             </p-tabpanels>
@@ -90,12 +117,26 @@ export class LifecycleProjectDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly lifecycleService = inject(LifecycleProjectsService);
+  private readonly customFieldsService = inject(CustomFieldsService);
+  private readonly ursService = inject(UrsService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
 
   /** Only show URS tab for validation/revalidation projects */
   protected readonly showUrsTab = signal(false);
+
+  /** Custom fields schema (null = not found or not loaded yet) */
+  protected readonly customFieldsSchema = signal<CustomFieldsSchema | null>(null);
+
+  /** Current custom field values from the URS artifact */
+  protected readonly customFieldValues = signal<Record<string, unknown>>({});
+
+  /** Saving state for custom fields */
+  protected readonly savingCustomFields = signal(false);
+
+  /** The URS artifact for persisting custom field values */
+  private ursArtifact: UrsArtifact | null = null;
 
   private readonly loadEffect = effect(() => {
     const projectId = this.route.snapshot.paramMap.get('projectId');
@@ -109,6 +150,12 @@ export class LifecycleProjectDetail {
         this.project.set(p);
         this.showUrsTab.set(p.type === 'validation' || p.type === 'revalidation');
         this.loading.set(false);
+
+        // Load custom fields schema + artifact values if URS tab is shown
+        if (p.type === 'validation' || p.type === 'revalidation') {
+          this.loadCustomFieldsSchema();
+          this.loadUrsArtifact(p.id);
+        }
       },
       error: () => {
         this.project.set(null);
@@ -116,6 +163,46 @@ export class LifecycleProjectDetail {
       },
     });
   });
+
+  /** Load the custom fields schema by name. If not found, leave null (section hidden). */
+  private loadCustomFieldsSchema(): void {
+    this.customFieldsService.getSchemaByName('csv.urs_artifact').subscribe({
+      next: (schema) => this.customFieldsSchema.set(schema),
+      error: () => this.customFieldsSchema.set(null), // Not found → hide section
+    });
+  }
+
+  /** Load the URS artifact to get its custom field values. */
+  private loadUrsArtifact(projectId: string): void {
+    this.ursService.getOrCreateArtifact(projectId).subscribe({
+      next: (artifact) => {
+        this.ursArtifact = artifact;
+        this.customFieldValues.set(artifact.customFieldValues ?? {});
+      },
+    });
+  }
+
+  /** Called when any custom field value changes in the renderer */
+  protected onCustomFieldsChanged(values: Record<string, unknown>): void {
+    this.customFieldValues.set(values);
+  }
+
+  /** Persist the current custom field values to the artifact */
+  protected saveCustomFields(): void {
+    if (!this.ursArtifact) return;
+
+    this.savingCustomFields.set(true);
+    this.ursService
+      .updateArtifactCustomFields(this.ursArtifact.id, this.customFieldValues())
+      .subscribe({
+        next: (updated) => {
+          this.ursArtifact = updated;
+          this.customFieldValues.set(updated.customFieldValues ?? {});
+          this.savingCustomFields.set(false);
+        },
+        error: () => this.savingCustomFields.set(false),
+      });
+  }
 
   protected goBack(): void {
     this.router.navigate(['/csv/lifecycle']);

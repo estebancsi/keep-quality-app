@@ -380,7 +380,7 @@ export class LifecycleList {
   protected openCreateDialog(): void {
     if (this.systemIdFilter) {
       // Pre-fill system if filter is active
-      this.selectedProject.set({ systemId: this.systemIdFilter } as any);
+      this.selectedProject.set({ systemId: this.systemIdFilter } as LifecycleProject);
     } else {
       this.selectedProject.set(null);
     }
@@ -401,7 +401,8 @@ export class LifecycleList {
         this.lifecycleService.transitionStatus(existing, payload.status).subscribe({
           next: () => {
             // Now update remaining fields (without status)
-            const { status, ...rest } = payload;
+            const rest = { ...payload };
+            delete rest.status;
             if (Object.keys(rest).length > 0) {
               this.lifecycleService.updateProject(existing.id, rest).subscribe({
                 next: () => {
