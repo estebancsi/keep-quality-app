@@ -3,7 +3,6 @@ import { SupabaseService } from '@/core/services/supabase.service';
 import { catchError, defer, map, Observable, throwError } from 'rxjs';
 import { CustomFieldsSchema } from '../types/custom-fields.types';
 import { CustomFieldsSchemaMapper } from '../utils/custom-fields-schema.mapper';
-import { OrganizationService } from '@/auth/organization.service';
 
 @Injectable({
   providedIn: 'root',
@@ -11,7 +10,6 @@ import { OrganizationService } from '@/auth/organization.service';
 export class CustomFieldsService {
   private supabase = inject(SupabaseService).client;
   private mapper = new CustomFieldsSchemaMapper();
-  private orgService = inject(OrganizationService);
 
   // New CRUD operations for custom_fields_schemas table
   getAllSchemas(): Observable<CustomFieldsSchema[]> {
@@ -52,7 +50,6 @@ export class CustomFieldsService {
 
   createSchema(schema: CustomFieldsSchema): Observable<CustomFieldsSchema> {
     const dbSchema = this.mapper.toPersistence(schema);
-    dbSchema.tenant_id = this.orgService.activeOrganizationId();
 
     return defer(async () =>
       this.supabase.from('custom_fields_schemas').insert(dbSchema).select().single(),
