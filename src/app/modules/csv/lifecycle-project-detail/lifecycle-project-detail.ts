@@ -12,6 +12,9 @@ import {
   LIFECYCLE_PROJECT_STATUS_OPTIONS,
 } from '../lifecycle-project.interface';
 import { UrsRequirementsTable } from './components/urs-requirements-table';
+import { FsCsRequirementsTable } from './components/fs-cs-requirements-table';
+import { FsCsRequirementType } from '../fs-cs.interface';
+import { FsCsService } from '../services/fs-cs.service';
 import { CustomFieldsRendererComponent } from '@/shared/custom-fields/renderer/custom-fields-renderer.component';
 import { CustomFieldsService } from '@/shared/custom-fields/service/custom-fields.service';
 import { CustomFieldsSchema } from '@/shared/custom-fields/types/custom-fields.types';
@@ -27,6 +30,7 @@ import { UrsArtifact } from '../urs.interface';
     TabsModule,
     ProgressSpinnerModule,
     UrsRequirementsTable,
+    FsCsRequirementsTable,
     CustomFieldsRendererComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -69,6 +73,12 @@ import { UrsArtifact } from '../urs.interface';
                 <i class="pi pi-file-edit mr-2"></i>
                 User Requirements (URS)
               </p-tab>
+              @if (showFsCsTab()) {
+                <p-tab value="fs-cs">
+                  <i class="pi pi-list mr-2"></i>
+                  FS / CS / DS
+                </p-tab>
+              }
             </p-tablist>
             <p-tabpanels>
               <p-tabpanel value="0">
@@ -95,6 +105,50 @@ import { UrsArtifact } from '../urs.interface';
 
                 <app-urs-requirements-table [lifecycleProjectId]="p.id" />
               </p-tabpanel>
+
+              @if (showFsCsTab()) {
+                <p-tabpanel value="fs-cs">
+                  <div class="flex flex-col gap-8">
+                    @for (type of fsCsReqTypes(); track type) {
+                      <div>
+                        <!-- Section Header for clarity -->
+                        <!-- <h4 class="text-lg font-semibold mb-3">{{ type }} Specification</h4> -->
+                        <!-- (Title is in table, maybe we don't need extra header, or maybe we do for custom fields?) -->
+
+                        <!-- Custom Fields for this Type -->
+                        @if (fsCsSchemas()[type]; as schema) {
+                          <div
+                            class="mb-4 p-4 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700"
+                          >
+                            <h4 class="text-base font-semibold mb-3">{{ type }} Properties</h4>
+                            <app-custom-fields-renderer
+                              [schema]="schema"
+                              [values]="fsCsValues()[type] || {}"
+                              (valuesChange)="onFsCsValuesChanged(type, $event)"
+                            />
+                            <div class="flex justify-end mt-2">
+                              <p-button
+                                label="Save {{ type }} Properties"
+                                icon="pi pi-save"
+                                [loading]="savingFsCs()[type] || false"
+                                (click)="saveFsCsFields(type)"
+                                size="small"
+                                [outlined]="true"
+                              />
+                            </div>
+                          </div>
+                        }
+
+                        <app-fs-cs-requirements-table
+                          [lifecycleProjectId]="p.id"
+                          [reqType]="type"
+                          [title]="type + ' Specification'"
+                        />
+                      </div>
+                    }
+                  </div>
+                </p-tabpanel>
+              }
             </p-tabpanels>
           </p-tabs>
         } @else {
@@ -126,6 +180,10 @@ export class LifecycleProjectDetail {
   /** Only show URS tab for validation/revalidation projects */
   protected readonly showUrsTab = signal(false);
 
+  /** Only show FS/CS tab for GAMP Cat 4 & 5 (Validation/Revalidation) */
+  protected readonly showFsCsTab = signal(false);
+  protected readonly fsCsReqTypes = signal<FsCsRequirementType[]>([]);
+
   /** Custom fields schema (null = not found or not loaded yet) */
   protected readonly customFieldsSchema = signal<CustomFieldsSchema | null>(null);
 
@@ -148,11 +206,31 @@ export class LifecycleProjectDetail {
     this.lifecycleService.getProject(projectId).subscribe({
       next: (p) => {
         this.project.set(p);
-        this.showUrsTab.set(p.type === 'validation' || p.type === 'revalidation');
+        const isValidation = p.type === 'validation' || p.type === 'revalidation';
+        this.showUrsTab.set(isValidation);
+
+        // FS/CS Logic: Only for Validation/Revalidation AND System Category 4 or 5
+        const categoryCode = p.system?.categoryCode;
+        if (isValidation && (categoryCode === 4 || categoryCode === 5)) {
+          this.showFsCsTab.set(true);
+          // Cat 4: Functional + Configuration
+          // Cat 5: Functional + Design (we use same table but different type)
+          if (categoryCode === 4) {
+            this.fsCsReqTypes.set(['Functional', 'Configuration']);
+          } else {
+            this.fsCsReqTypes.set(['Functional', 'Design']);
+          }
+          // Load Custom Fields Logic
+          this.loadFsCsData(p.id, this.fsCsReqTypes());
+        } else {
+          this.showFsCsTab.set(false);
+          this.fsCsReqTypes.set([]);
+        }
+
         this.loading.set(false);
 
         // Load custom fields schema + artifact values if URS tab is shown
-        if (p.type === 'validation' || p.type === 'revalidation') {
+        if (isValidation) {
           this.loadCustomFieldsSchema();
           this.loadUrsArtifact(p.id);
         }
@@ -187,7 +265,7 @@ export class LifecycleProjectDetail {
     this.customFieldValues.set(values);
   }
 
-  /** Persist the current custom field values to the artifact */
+  /** Persist the current custom field values to the artifact (URS) */
   protected saveCustomFields(): void {
     if (!this.ursArtifact) return;
 
@@ -202,6 +280,73 @@ export class LifecycleProjectDetail {
         },
         error: () => this.savingCustomFields.set(false),
       });
+  }
+
+  // ─── FS/CS Custom Fields Logic ─────────────────────
+
+  /** Schemas for FS, CS, DS */
+  protected readonly fsCsSchemas = signal<Record<string, CustomFieldsSchema | null>>({});
+  /** Values per type (namespaced) */
+  protected readonly fsCsValues = signal<Record<string, Record<string, unknown>>>({});
+  protected readonly savingFsCs = signal<Record<string, boolean>>({});
+
+  private fsCsArtifact: { id: string; customFieldValues?: Record<string, any> } | null = null;
+  private readonly fsCsService = inject(FsCsService); // Inject FsCsService
+
+  /** Load schemas for enabled types and fetch artifact */
+  private loadFsCsData(projectId: string, types: FsCsRequirementType[]) {
+    // 1. Load Artifact
+    this.fsCsService.getOrCreateArtifact(projectId).subscribe({
+      next: (artifact) => {
+        this.fsCsArtifact = artifact;
+        // Parse current values (defaulting to empty object if null)
+        const currentVals = artifact.customFieldValues || {};
+        this.fsCsValues.set(currentVals);
+      },
+    });
+
+    // 2. Load Schemas for each type
+    // Schema names: csv.spec.functional, csv.spec.configuration, csv.spec.design
+    types.forEach((type) => {
+      const schemaName = `csv.spec.${type.toLowerCase()}`;
+      this.customFieldsService.getSchemaByName(schemaName).subscribe({
+        next: (schema) => {
+          this.fsCsSchemas.update((prev) => ({ ...prev, [type]: schema }));
+        },
+        error: () => {
+          this.fsCsSchemas.update((prev) => ({ ...prev, [type]: null }));
+        },
+      });
+    });
+  }
+
+  protected onFsCsValuesChanged(type: string, values: Record<string, unknown>) {
+    this.fsCsValues.update((prev) => ({
+      ...prev,
+      [type]: values,
+    }));
+  }
+
+  protected saveFsCsFields(type: string) {
+    if (!this.fsCsArtifact) return;
+
+    // Set loading state for this specific type
+    this.savingFsCs.update((prev) => ({ ...prev, [type]: true }));
+
+    // Merge changes into the artifact's full values object
+    const currentAllValues = this.fsCsValues();
+
+    // We update the whole object in DB
+    this.fsCsService.updateArtifactCustomFields(this.fsCsArtifact.id, currentAllValues).subscribe({
+      next: (updated) => {
+        this.fsCsArtifact = updated;
+        this.fsCsValues.set(updated.customFieldValues ?? {});
+        this.savingFsCs.update((prev) => ({ ...prev, [type]: false }));
+      },
+      error: () => {
+        this.savingFsCs.update((prev) => ({ ...prev, [type]: false }));
+      },
+    });
   }
 
   protected goBack(): void {

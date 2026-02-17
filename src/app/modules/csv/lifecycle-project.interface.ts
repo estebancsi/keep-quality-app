@@ -2,7 +2,11 @@
 // CSV Lifecycle Projects — Domain Interfaces
 // ============================================================
 
-import { ComputerizedSystem, ComputerizedSystemDto } from './computerized-systems.interface';
+import {
+  ComputerizedSystem,
+  ComputerizedSystemDto,
+  CsvCategoryDto,
+} from './computerized-systems.interface';
 
 /** Lifecycle project phase types */
 export type LifecycleProjectType = 'validation' | 'periodic_review' | 'revalidation' | 'retirement';
@@ -15,7 +19,7 @@ export interface LifecycleProject {
   id: string;
   code: number;
   systemId: string;
-  system?: Pick<ComputerizedSystem, 'id' | 'name' | 'code'>;
+  system?: Pick<ComputerizedSystem, 'id' | 'name' | 'code'> & { categoryCode?: number };
   type: LifecycleProjectType;
   status: LifecycleProjectStatus;
   startDate: string | null;
@@ -34,7 +38,9 @@ export interface LifecycleProjectDto {
   tenant_id?: string;
   code: number;
   system_id: string;
-  csv_systems?: Pick<ComputerizedSystemDto, 'id' | 'name' | 'code'>;
+  csv_systems?: Pick<ComputerizedSystemDto, 'id' | 'name' | 'code'> & {
+    csv_categories?: Pick<CsvCategoryDto, 'code'>;
+  };
   type: string;
   status: string;
   start_date: string | null;

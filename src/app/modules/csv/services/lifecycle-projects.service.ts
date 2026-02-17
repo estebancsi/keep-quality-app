@@ -19,7 +19,7 @@ export class LifecycleProjectsService {
   private readonly messageService = inject(MessageService);
   private readonly orgService = inject(OrganizationService);
 
-  private readonly systemSelect = 'csv_systems(id, name, code)';
+  private readonly systemSelect = 'csv_systems(id, name, code, csv_categories(code))';
 
   // ─── List ────────────────────────────────────────────
 
@@ -267,6 +267,7 @@ export class LifecycleProjectsService {
             id: dto.csv_systems.id,
             name: dto.csv_systems.name,
             code: dto.csv_systems.code,
+            categoryCode: dto.csv_systems.csv_categories?.code,
           }
         : undefined,
       type: dto.type as LifecycleProjectType,

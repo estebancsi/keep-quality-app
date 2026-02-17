@@ -395,7 +395,7 @@ export class LifecycleList {
   protected onSaved(payload: Partial<LifecycleProject>): void {
     const existing = this.selectedProject();
 
-    if (existing) {
+    if (existing && existing.id) {
       // Check if status changed — use transition endpoint
       if (payload.status && payload.status !== existing.status) {
         this.lifecycleService.transitionStatus(existing, payload.status).subscribe({
