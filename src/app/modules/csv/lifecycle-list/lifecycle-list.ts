@@ -6,7 +6,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from 'primeng/api';
@@ -188,6 +188,14 @@ import { UsersService } from '@/modules/organization/users/users.service';
             <td>
               <div class="flex gap-1">
                 <p-button
+                  icon="pi pi-eye"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="secondary"
+                  (click)="navigateToDetail(project)"
+                  pTooltip="Open"
+                />
+                <p-button
                   icon="pi pi-pencil"
                   [rounded]="true"
                   [text]="true"
@@ -244,6 +252,7 @@ export class LifecycleList {
   private readonly lifecycleService = inject(LifecycleProjectsService);
   private readonly usersService = inject(UsersService);
   private readonly confirmationService = inject(ConfirmationService);
+  private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
   private readonly dt = viewChild<Table>('dt');
@@ -439,6 +448,10 @@ export class LifecycleList {
   }
 
   // ─── Display helpers ────────────────────────────────
+
+  protected navigateToDetail(project: LifecycleProject): void {
+    this.router.navigate(['/csv/lifecycle', project.id]);
+  }
 
   protected getOwnerName(userId: string | null): string {
     if (!userId) return '—';

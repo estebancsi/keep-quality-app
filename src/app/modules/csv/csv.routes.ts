@@ -9,4 +9,11 @@ export default [
     path: 'lifecycle',
     loadComponent: () => import('./lifecycle-list/lifecycle-list').then((m) => m.LifecycleList),
   },
+  {
+    path: 'lifecycle/:projectId',
+    loadComponent: () =>
+      import('./lifecycle-project-detail/lifecycle-project-detail').then(
+        (m) => m.LifecycleProjectDetail,
+      ),
+  },
 ] as Routes;
