@@ -6,10 +6,11 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from 'primeng/api';
-import { TableModule, Table, TableLazyLoadEvent } from 'primeng/table';
+import { TableModule, Table, TableLazyLoadEvent, TableRowSelectEvent } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
@@ -104,6 +105,8 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
         [sortOrder]="1"
         dataKey="id"
         styleClass="p-datatable-sm"
+        selectionMode="single"
+        (onRowSelect)="onRowSelect($event)"
       >
         <ng-template #header>
           <tr>
@@ -124,7 +127,7 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
         </ng-template>
 
         <ng-template #body let-system>
-          <tr>
+          <tr [pSelectableRow]="system">
             <td class="font-mono font-semibold">{{ system.code }}</td>
             <td>
               <div class="flex flex-col">
@@ -169,14 +172,14 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
             </td>
             <td>{{ system.nextReviewDate ?? '—' }}</td>
             <td>
-              <div class="flex gap-1">
+              <div class="flex gap-1" (click)="$event.stopPropagation()">
                 <p-button
-                  icon="pi pi-pencil"
+                  icon="pi pi-history"
                   [rounded]="true"
                   [text]="true"
-                  severity="info"
-                  (click)="openEditDialog(system)"
-                  pTooltip="Edit"
+                  severity="secondary"
+                  (click)="openLifecycle(system)"
+                  pTooltip="Manage Lifecycle Projects"
                 />
                 <p-button
                   icon="pi pi-trash"
@@ -223,6 +226,7 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
   `,
 })
 export class SystemList {
+  private readonly router = inject(Router);
   private readonly csvService = inject(ComputerizedSystemsService);
   private readonly confirmationService = inject(ConfirmationService);
 
@@ -247,6 +251,10 @@ export class SystemList {
   });
 
   // ─── Table ───────────────────────────────────────────
+
+  protected onRowSelect(event: TableRowSelectEvent): void {
+    this.openEditDialog(event.data as ComputerizedSystem);
+  }
 
   protected loadSystems(event: TableLazyLoadEvent): void {
     this.lastEvent = event;
@@ -345,6 +353,12 @@ export class SystemList {
   }
 
   // ─── Display helpers ────────────────────────────────
+
+  protected openLifecycle(system: ComputerizedSystem): void {
+    this.router.navigate(['/csv/lifecycle'], {
+      queryParams: { systemId: system.id },
+    });
+  }
 
   protected getLifecycleLabel(status: string): string {
     return LIFECYCLE_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
