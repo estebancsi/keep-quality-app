@@ -63,6 +63,12 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'csv',
+    component: AppLayout,
+    canActivateChild: [autoLoginPartialRoutesGuard],
+    loadChildren: () => import('./modules/csv/csv.routes'),
+  },
+  {
     path: 'oops',
     loadComponent: () => import('./pages/oops/oops').then((m) => m.Oops),
   },
