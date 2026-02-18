@@ -108,6 +108,7 @@ export class UrsService {
           urs_artifact_id: artifactId,
           position,
           description: '',
+          category: 'Functional', // Default
         })
         .select('*')
         .single(),
@@ -128,6 +129,8 @@ export class UrsService {
   updateRequirement(id: string, changes: Partial<UrsRequirement>): Observable<UrsRequirement> {
     const payload: Record<string, unknown> = {};
     if (changes.description !== undefined) payload['description'] = changes.description;
+    if (changes.category !== undefined) payload['category'] = changes.category;
+    if (changes.groupName !== undefined) payload['group_name'] = changes.groupName;
     if (changes.position !== undefined) payload['position'] = changes.position;
 
     return defer(async () =>
@@ -192,6 +195,8 @@ export class UrsService {
       code: dto.code,
       position: dto.position,
       description: dto.description,
+      category: dto.category,
+      groupName: dto.group_name,
       createdBy: dto.created_by,
       updatedBy: dto.updated_by,
       createdAt: dto.created_at,

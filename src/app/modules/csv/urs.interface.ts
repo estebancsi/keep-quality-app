@@ -26,12 +26,16 @@ export interface UrsArtifactDto {
 }
 
 /** URS requirement domain model */
+export type UrsCategory = 'Functional' | 'Configuration' | 'Design';
+
 export interface UrsRequirement {
   id: string;
   ursArtifactId: string;
   code: number;
   position: number;
   description: string;
+  category: UrsCategory;
+  groupName: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
@@ -46,6 +50,8 @@ export interface UrsRequirementDto {
   code: number;
   position: number;
   description: string;
+  category: UrsCategory;
+  group_name: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;

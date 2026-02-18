@@ -9,7 +9,9 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { EditorModule } from 'primeng/editor';
 import { DialogModule } from 'primeng/dialog';
 import { UrsService } from '../../services/urs.service';
-import { UrsRequirement } from '../../urs.interface';
+import { SelectModule } from 'primeng/select';
+import { AutoCompleteModule } from 'primeng/autocomplete';
+import { UrsCategory, UrsRequirement } from '../../urs.interface';
 import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
 import { FsCsService } from '../../services/fs-cs.service';
 import { switchMap } from 'rxjs';
@@ -25,6 +27,9 @@ import { switchMap } from 'rxjs';
     ConfirmDialogModule,
     EditorModule,
     DialogModule,
+    DialogModule,
+    SelectModule,
+    AutoCompleteModule,
     AiActionButtonComponent,
   ],
   providers: [ConfirmationService],
@@ -63,22 +68,60 @@ import { switchMap } from 'rxjs';
         [loading]="loading()"
         dataKey="id"
         styleClass="p-datatable-sm"
+        rowGroupMode="subheader"
+        groupRowsBy="groupName"
+        sortField="position"
+        sortMode="single"
       >
         <ng-template #header>
           <tr>
             <th style="width: 3rem" aria-label="Drag handle"></th>
             <th style="width: 5rem">Code</th>
+            <th style="width: 10rem">Category</th>
             <th>Description</th>
+            <th style="width: 12rem">Group</th>
             <th style="width: 8rem">Actions</th>
           </tr>
         </ng-template>
 
-        <ng-template #body let-req let-index="rowIndex">
+        <ng-template #groupheader let-req let-expanded="expanded">
+          <tr pRowGroupHeader>
+            <td colspan="6">
+              <button
+                type="button"
+                pButton
+                pRipple
+                [pRowToggler]="req"
+                text
+                rounded
+                plain
+                class="mr-2"
+                [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+              >
+                {{ req.groupName || 'Uncategorized' }}
+              </button>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template #expandedrow let-req let-index="rowIndex">
           <tr [pReorderableRow]="index">
             <td>
               <span class="pi pi-bars cursor-move" pReorderableRowHandle></span>
             </td>
             <td class="font-mono font-semibold">URS-{{ req.code }}</td>
+            <td>
+              @if (editingId() === req.id) {
+                <p-select
+                  [options]="categoryOptions"
+                  [(ngModel)]="editCategory"
+                  [style]="{ width: '100%' }"
+                  appendTo="body"
+                />
+              } @else {
+                <span [class.text-surface-400]="!req.category">{{ req.category }}</span>
+              }
+            </td>
             <td>
               @if (editingId() === req.id) {
                 <p-editor [(ngModel)]="editDescription" [style]="{ height: '150px' }">
@@ -136,6 +179,20 @@ import { switchMap } from 'rxjs';
                     <span class="text-surface-400 italic">Click to add description…</span>
                   }
                 </div>
+              }
+            </td>
+            <td>
+              @if (editingId() === req.id) {
+                <p-autoComplete
+                  [(ngModel)]="editGroupName"
+                  [suggestions]="groupSuggestions()"
+                  (completeMethod)="searchGroups($event)"
+                  [dropdown]="true"
+                  placeholder="Group Name"
+                  appendTo="body"
+                />
+              } @else {
+                {{ req.groupName }}
               }
             </td>
             <td>
@@ -226,6 +283,7 @@ import { switchMap } from 'rxjs';
             label="Accept Recommendation"
             icon="pi pi-check"
             (click)="acceptAiRecommendation()"
+            [disabled]="!aiReviewData?.recommendation"
             severity="success"
             [autofocus]="true"
           />
@@ -250,6 +308,11 @@ export class UrsRequirementsTable {
   protected readonly saving = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected editDescription = '';
+  protected editCategory = signal<UrsCategory>('Functional');
+  protected editGroupName = signal<string>('');
+
+  protected readonly categoryOptions: UrsCategory[] = ['Functional', 'Configuration', 'Design'];
+  protected groupSuggestions = signal<string[]>([]);
 
   // AI Review State
   protected reviewDialogVisible = false;
@@ -289,6 +352,8 @@ export class UrsRequirementsTable {
   protected addRequirement(): void {
     this.adding.set(true);
     const nextPosition = this.requirements().length;
+    // Position finding might be complex with groups, but we just add to end for now.
+    // Ideally we find the max position.
 
     this.ursService.createRequirement(this.artifactId, nextPosition).subscribe({
       next: (req) => {
@@ -304,24 +369,48 @@ export class UrsRequirementsTable {
   protected startEdit(req: UrsRequirement): void {
     this.editingId.set(req.id);
     this.editDescription = req.description;
+    this.editCategory.set(req.category);
+    this.editGroupName.set(req.groupName || '');
   }
 
   protected cancelEdit(): void {
     this.editingId.set(null);
     this.editDescription = '';
+    this.editCategory.set('Functional');
+    this.editGroupName.set('');
+  }
+
+  protected searchGroups(event: { query: string }): void {
+    const query = event.query.toLowerCase();
+    const existingGroups = Array.from(
+      new Set(
+        this.requirements()
+          .map((r) => r.groupName)
+          .filter((g): g is string => !!g),
+      ),
+    );
+    this.groupSuggestions.set(existingGroups.filter((g) => g.toLowerCase().includes(query)));
   }
 
   protected saveEdit(req: UrsRequirement): void {
     this.saving.set(true);
-    this.ursService.updateRequirement(req.id, { description: this.editDescription }).subscribe({
-      next: (updated) => {
-        this.requirements.update((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-        this.editingId.set(null);
-        this.editDescription = '';
-        this.saving.set(false);
-      },
-      error: () => this.saving.set(false),
-    });
+    this.ursService
+      .updateRequirement(req.id, {
+        description: this.editDescription,
+        category: this.editCategory(),
+        groupName: this.editGroupName() || null,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.requirements.update((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+          this.editingId.set(null);
+          this.editDescription = '';
+          this.editCategory.set('Functional');
+          this.editGroupName.set('');
+          this.saving.set(false);
+        },
+        error: () => this.saving.set(false),
+      });
   }
 
   protected onRowReorder(event: { dragIndex?: number; dropIndex?: number }): void {
@@ -393,6 +482,8 @@ export class UrsRequirementsTable {
     if (this.reviewingReq && this.aiReviewData?.recommendation) {
       this.editingId.set(this.reviewingReq.id);
       this.editDescription = this.aiReviewData.recommendation;
+      this.editCategory.set(this.reviewingReq.category);
+      this.editGroupName.set(this.reviewingReq.groupName || '');
       this.saveEdit(this.reviewingReq);
       this.closeReviewDialog();
     }
