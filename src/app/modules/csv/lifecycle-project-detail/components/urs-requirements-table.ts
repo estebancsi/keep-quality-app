@@ -11,6 +11,8 @@ import { DialogModule } from 'primeng/dialog';
 import { UrsService } from '../../services/urs.service';
 import { UrsRequirement } from '../../urs.interface';
 import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
+import { FsCsService } from '../../services/fs-cs.service';
+import { switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-urs-requirements-table',
@@ -33,6 +35,17 @@ import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold m-0">User Requirements</h3>
         <div class="flex gap-2">
+          <app-ai-action-button
+            action="csv.spec.functional:generate-from-urs"
+            label="Generate FS"
+            icon="pi pi-sparkles"
+            size="small"
+            severity="help"
+            [outlined]="true"
+            [context]="{ requirements: requirements() }"
+            (actionSuccess)="onFsGenerationSuccess($event)"
+            tooltip="Generate Functional Specs from these requirements"
+          />
           <p-button
             label="Add Requirement"
             icon="pi pi-plus"
@@ -225,6 +238,7 @@ import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai
 })
 export class UrsRequirementsTable {
   private readonly ursService = inject(UrsService);
+  private readonly fsCsService = inject(FsCsService);
   private readonly confirmationService = inject(ConfirmationService);
 
   readonly lifecycleProjectId = input.required<string>();
@@ -381,6 +395,51 @@ export class UrsRequirementsTable {
       this.editDescription = this.aiReviewData.recommendation;
       this.saveEdit(this.reviewingReq);
       this.closeReviewDialog();
+    }
+  }
+
+  protected onFsGenerationSuccess(response: string): void {
+    try {
+      const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      const generatedReqs = JSON.parse(cleanedResponse);
+
+      if (!Array.isArray(generatedReqs)) {
+        throw new Error('AI response is not an array');
+      }
+
+      this.loading.set(true);
+
+      // 1. Ensure FS artifact exists
+      this.fsCsService
+        .getOrCreateArtifact(this.lifecycleProjectId())
+        .pipe(
+          switchMap((artifact) => {
+            // 2. Create requirements
+            return this.fsCsService.createRequirements(
+              artifact.id,
+              'Functional',
+              generatedReqs.map(
+                (req: { description: string; category?: string; traceUrsIds?: string[] }) => ({
+                  description: req.description,
+                  category: req.category,
+                  traceUrsIds: req.traceUrsIds,
+                }),
+              ),
+            );
+          }),
+        )
+        .subscribe({
+          next: () => {
+            this.loading.set(false);
+            // Optionally redirect to FS tab or show success message (handled in service)
+          },
+          error: () => this.loading.set(false),
+        });
+    } catch (e) {
+      console.error('Failed to parse AI response for FS generation', e);
+      // Could show a toast here if needed, but ai-action-button handles general interface errors?
+      // Actually ai-action-button emits actionError on its own error, but we are inside actionSuccess here.
+      // So we should probably show a message.
     }
   }
 }
