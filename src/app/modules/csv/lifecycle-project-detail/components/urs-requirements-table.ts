@@ -14,6 +14,7 @@ import { AutoCompleteModule } from 'primeng/autocomplete';
 import { UrsCategory, UrsRequirement } from '../../urs.interface';
 import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
 import { FsCsService } from '../../services/fs-cs.service';
+import { FsCsRequirementType } from '../../fs-cs.interface';
 import { switchMap } from 'rxjs';
 
 @Component({
@@ -41,15 +42,15 @@ import { switchMap } from 'rxjs';
         <h3 class="text-lg font-semibold m-0">User Requirements</h3>
         <div class="flex gap-2">
           <app-ai-action-button
-            action="csv.spec.functional:generate-from-urs"
-            label="Generate FS"
+            action="csv.spec:generate-from-urs"
+            label="Generate Specs"
             icon="pi pi-sparkles"
             size="small"
             severity="help"
             [outlined]="true"
             [context]="{ requirements: requirements() }"
-            (actionSuccess)="onFsGenerationSuccess($event)"
-            tooltip="Generate Functional Specs from these requirements"
+            (actionSuccess)="onSpecGenerationSuccess($event)"
+            tooltip="Generate Specifications from these requirements"
           />
           <p-button
             label="Add Requirement"
@@ -489,9 +490,10 @@ export class UrsRequirementsTable {
     }
   }
 
-  protected onFsGenerationSuccess(response: string): void {
+  protected onSpecGenerationSuccess(response: string): void {
     try {
       const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      console.log('cleanedResponse', cleanedResponse);
       const generatedReqs = JSON.parse(cleanedResponse);
 
       if (!Array.isArray(generatedReqs)) {
@@ -500,19 +502,24 @@ export class UrsRequirementsTable {
 
       this.loading.set(true);
 
-      // 1. Ensure FS artifact exists
+      // 1. Ensure FS/CS artifact exists
       this.fsCsService
         .getOrCreateArtifact(this.lifecycleProjectId())
         .pipe(
           switchMap((artifact) => {
-            // 2. Create requirements
-            return this.fsCsService.createRequirements(
+            // 2. Create requirements with mixed types
+            return this.fsCsService.createMixedRequirements(
               artifact.id,
-              'Functional',
               generatedReqs.map(
-                (req: { description: string; category?: string; traceUrsIds?: string[] }) => ({
+                (req: {
+                  description: string;
+                  category?: string;
+                  reqType: FsCsRequirementType;
+                  traceUrsIds?: string[];
+                }) => ({
                   description: req.description,
                   category: req.category,
+                  reqType: req.reqType,
                   traceUrsIds: req.traceUrsIds,
                 }),
               ),
@@ -527,10 +534,9 @@ export class UrsRequirementsTable {
           error: () => this.loading.set(false),
         });
     } catch (e) {
-      console.error('Failed to parse AI response for FS generation', e);
-      // Could show a toast here if needed, but ai-action-button handles general interface errors?
-      // Actually ai-action-button emits actionError on its own error, but we are inside actionSuccess here.
-      // So we should probably show a message.
+      console.error('Failed to parse AI response for Spec generation', e);
+      // Could show a toast here if needed
+      this.loading.set(false);
     }
   }
 }

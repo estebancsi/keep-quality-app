@@ -177,6 +177,60 @@ export class FsCsService {
     );
   }
 
+  /**
+   * Bulk create requirements with mixed types.
+   */
+  createMixedRequirements(
+    artifactId: string,
+    requirements: (Partial<FsCsRequirement> & { reqType: FsCsRequirementType })[],
+  ): Observable<FsCsRequirement[]> {
+    const tenantId = this.orgService.activeOrganizationId();
+
+    return defer(async () => {
+      // 1. Get current max position to append
+      const { data: maxPosData, error: maxPosError } = await this.supabase
+        .from('csv_fs_cs_requirements')
+        .select('position')
+        .eq('fs_cs_artifact_id', artifactId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (maxPosError) throw maxPosError;
+      let currentPos = (maxPosData?.position ?? -1) + 1;
+
+      // 2. Prepare inserts
+      const inserts = requirements.map((req) => ({
+        tenant_id: tenantId,
+        fs_cs_artifact_id: artifactId,
+        req_type: req.reqType,
+        position: currentPos++,
+        description: req.description || '',
+        category: req.category || null,
+        trace_urs_ids: req.traceUrsIds || [],
+      }));
+
+      // 3. Insert
+      const { data, error } = await this.supabase
+        .from('csv_fs_cs_requirements')
+        .insert(inserts)
+        .select('*');
+
+      return { data, error };
+    }).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${(data as FsCsRequirementDto[]).length} requirements added`,
+        });
+        return (data as FsCsRequirementDto[]).map((dto) => this.requirementToDomain(dto));
+      }),
+      catchError((error) => this.handleError(error, 'Create FS/CS Mixed Requirements')),
+    );
+  }
+
   updateRequirement(id: string, changes: Partial<FsCsRequirement>): Observable<FsCsRequirement> {
     const payload: Record<string, unknown> = {};
     if (changes.description !== undefined) payload['description'] = changes.description;
