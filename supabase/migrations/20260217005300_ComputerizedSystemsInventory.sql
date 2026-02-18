@@ -9,7 +9,6 @@
 
 create table "public"."csv_categories" (
   "id" uuid not null default gen_random_uuid(),
-  "tenant_id" text default public.current_tenant_id(),
   "code" integer not null,
   "name" text not null,
   "description" text,
@@ -22,19 +21,19 @@ create table "public"."csv_categories" (
 alter table "public"."csv_categories" enable row level security;
 
 CREATE UNIQUE INDEX csv_categories_pkey ON public.csv_categories USING btree (id);
-CREATE UNIQUE INDEX csv_categories_tenant_code_unique ON public.csv_categories USING btree (tenant_id, code);
+CREATE UNIQUE INDEX csv_categories_code_unique ON public.csv_categories USING btree (code);
 
 alter table "public"."csv_categories" add constraint "csv_categories_pkey" PRIMARY KEY using index "csv_categories_pkey";
-alter table "public"."csv_categories" add constraint "csv_categories_tenant_code_unique" UNIQUE using index "csv_categories_tenant_code_unique";
+alter table "public"."csv_categories" add constraint "csv_categories_code_unique" UNIQUE using index "csv_categories_code_unique";
 
 -- RLS
-create policy "Users can manage categories for their organization"
+create policy "Authenticated users can manage categories"
   on "public"."csv_categories"
   as permissive
   for all
   to authenticated
-using ((tenant_id = public.current_tenant_id()))
-with check ((tenant_id = public.current_tenant_id()));
+using (true)
+with check (true);
 
 -- Grants
 grant select, insert, update, delete on table "public"."csv_categories" to "anon";
@@ -139,12 +138,6 @@ FOR EACH ROW EXECUTE FUNCTION public.csv_systems_auto_code();
 -- =====================
 -- 4. SEED DEFAULT CATEGORIES
 -- =====================
--- Note: These are inserted without tenant_id so they apply via current_tenant_id().
--- In production, you may want a trigger that seeds categories when a new tenant is created.
--- For now, seed them for the current tenant context or via service_role.
-
--- The INSERT below uses current_tenant_id() default. Run this as the appropriate tenant
--- or seed via a function that creates categories per tenant on first access.
 
 INSERT INTO "public"."csv_categories" (code, name, description, typical_examples, validation_effort) VALUES
   (1, 'Infrastructure Software',
@@ -163,4 +156,4 @@ INSERT INTO "public"."csv_categories" (code, name, description, typical_examples
    'Software that is custom developed or contains custom code to meet specific requirements. This includes bespoke applications, macros, and scripts.',
    'In-house developed applications, Excel macros/VBA, custom integrations, Python scripts',
    'Full - Complete SDLC validation including design, code review, IQ/OQ/PQ')
-ON CONFLICT (tenant_id, code) DO NOTHING;
+ON CONFLICT (code) DO NOTHING;

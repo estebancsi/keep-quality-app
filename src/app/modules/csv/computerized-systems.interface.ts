@@ -39,7 +39,6 @@ export interface CsvCategory {
 /** Supabase row shape for csv_categories */
 export interface CsvCategoryDto {
   id: string;
-  tenant_id?: string;
   code: number;
   name: string;
   description: string | null;

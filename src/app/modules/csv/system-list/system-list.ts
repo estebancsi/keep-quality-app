@@ -172,13 +172,13 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
             </td>
             <td>{{ system.nextReviewDate ?? '—' }}</td>
             <td>
-              <div class="flex gap-1" (click)="$event.stopPropagation()">
+              <div class="flex gap-1">
                 <p-button
                   icon="pi pi-history"
                   [rounded]="true"
                   [text]="true"
                   severity="secondary"
-                  (click)="openLifecycle(system)"
+                  (click)="openLifecycle(system); $event.stopPropagation()"
                   pTooltip="Manage Lifecycle Projects"
                 />
                 <p-button
@@ -186,7 +186,7 @@ import { SystemFormDialog } from './system-form-dialog/system-form-dialog';
                   [rounded]="true"
                   [text]="true"
                   severity="danger"
-                  (click)="confirmDelete(system)"
+                  (click)="confirmDelete(system); $event.stopPropagation()"
                   pTooltip="Delete"
                 />
               </div>

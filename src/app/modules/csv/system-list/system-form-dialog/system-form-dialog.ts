@@ -414,8 +414,12 @@ export class SystemFormDialog {
   // Populate form when system input changes
   private readonly patchFormEffect = effect(() => {
     const sys = this.system();
+    const isVisible = this.visible();
+
     // Untrack form to avoid cycles if we add other dependencies
     untracked(() => {
+      if (!isVisible) return;
+
       if (sys) {
         this.form.patchValue({
           name: sys.name,
