@@ -144,6 +144,60 @@ export class UrsService {
     );
   }
 
+  /**
+   * Bulk create requirements.
+   */
+  createRequirements(
+    artifactId: string,
+    requirements: Partial<UrsRequirement>[],
+  ): Observable<UrsRequirement[]> {
+    const tenantId = this.orgService.activeOrganizationId();
+
+    return defer(async () => {
+      // 1. Get current max position to append
+      const { data: maxPosData, error: maxPosError } = await this.supabase
+        .from('csv_urs_requirements')
+        .select('position')
+        .eq('urs_artifact_id', artifactId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (maxPosError) throw maxPosError;
+      let currentPos = (maxPosData?.position ?? -1) + 1;
+
+      // 2. Prepare inserts
+      const inserts = requirements.map((req) => ({
+        tenant_id: tenantId,
+        urs_artifact_id: artifactId,
+        position: currentPos++,
+        description: req.description || '',
+        category: req.category || 'Functional',
+        group_name: req.groupName || null,
+        code: req.code, // Assuming code generation is handled by DB or ignored if serial
+      }));
+
+      // 3. Insert
+      const { data, error } = await this.supabase
+        .from('csv_urs_requirements')
+        .insert(inserts)
+        .select('*');
+
+      return { data, error };
+    }).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${(data as UrsRequirementDto[]).length} requirements added`,
+        });
+        return (data as UrsRequirementDto[]).map((dto) => this.requirementToDomain(dto));
+      }),
+      catchError((error) => this.handleError(error, 'Create URS Requirements (Bulk)')),
+    );
+  }
+
   deleteRequirement(id: string): Observable<void> {
     return defer(async () => this.supabase.from('csv_urs_requirements').delete().eq('id', id)).pipe(
       map(({ error }) => {

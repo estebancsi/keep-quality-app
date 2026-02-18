@@ -20,6 +20,13 @@ import { CustomFieldsService } from '@/shared/custom-fields/service/custom-field
 import { CustomFieldsSchema } from '@/shared/custom-fields/types/custom-fields.types';
 import { UrsService } from '../services/urs.service';
 import { UrsArtifact } from '../urs.interface';
+import {
+  ArtifactImportExportService,
+  ExportData,
+  ExportUrsRequirement,
+  ExportFsCsRequirement,
+} from '../services/artifact-import-export.service';
+import { ArtifactImportDialogComponent } from '../components/artifact-import-dialog/artifact-import-dialog.component';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -32,6 +39,7 @@ import { UrsArtifact } from '../urs.interface';
     UrsRequirementsTable,
     FsCsRequirementsTable,
     CustomFieldsRendererComponent,
+    ArtifactImportDialogComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -63,7 +71,41 @@ import { UrsArtifact } from '../urs.interface';
               </p>
             }
           </div>
+
+          <!-- Actions -->
+          <div class="flex gap-2">
+            <p-button
+              label="Export"
+              icon="pi pi-download"
+              [outlined]="true"
+              severity="secondary"
+              (click)="exportProject()"
+              [loading]="isExporting()"
+              pTooltip="Export URS and FS/CS to JSON"
+            />
+            <p-button
+              label="Import"
+              icon="pi pi-upload"
+              [outlined]="true"
+              severity="secondary"
+              (click)="triggerImport()"
+              pTooltip="Import URS and FS/CS from JSON"
+            />
+            <input
+              type="file"
+              #fileInput
+              class="hidden"
+              accept=".json"
+              (change)="onImportFileSelected($event)"
+            />
+          </div>
         </div>
+
+        <app-artifact-import-dialog
+          [(visible)]="importDialogVisible"
+          [importData]="importData()"
+          (confirm)="onImportConfirm($event)"
+        />
 
         <!-- Tabs for artifacts -->
         @if (showUrsTab()) {
@@ -173,6 +215,8 @@ export class LifecycleProjectDetail {
   private readonly lifecycleService = inject(LifecycleProjectsService);
   private readonly customFieldsService = inject(CustomFieldsService);
   private readonly ursService = inject(UrsService);
+  private readonly importExportService = inject(ArtifactImportExportService);
+  private readonly fsCsService = inject(FsCsService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
@@ -196,31 +240,45 @@ export class LifecycleProjectDetail {
   /** The URS artifact for persisting custom field values */
   private ursArtifact: UrsArtifact | null = null;
 
-  private readonly loadEffect = effect(() => {
-    const projectId = this.route.snapshot.paramMap.get('projectId');
-    if (!projectId) {
-      this.loading.set(false);
-      return;
-    }
+  // Export / Import State
+  protected readonly isExporting = signal(false);
+  protected readonly importDialogVisible = signal(false);
+  protected readonly importData = signal<ExportData | null>(null);
 
+  // FS/CS Custom Fields Logic State
+  protected readonly fsCsSchemas = signal<Record<string, CustomFieldsSchema | null>>({});
+  protected readonly fsCsValues = signal<Record<string, Record<string, unknown>>>({});
+  protected readonly savingFsCs = signal<Record<string, boolean>>({});
+  private fsCsArtifact: FsCsArtifact | null = null;
+
+  constructor() {
+    effect(() => {
+      const projectId = this.route.snapshot.paramMap.get('projectId');
+      if (projectId) {
+        this.reloadProjectData(projectId);
+      } else {
+        this.loading.set(false);
+      }
+    });
+  }
+
+  // Reload Logic
+  private reloadProjectData(projectId: string) {
+    this.loading.set(true);
     this.lifecycleService.getProject(projectId).subscribe({
       next: (p) => {
         this.project.set(p);
         const isValidation = p.type === 'validation' || p.type === 'revalidation';
         this.showUrsTab.set(isValidation);
 
-        // FS/CS Logic: Only for Validation/Revalidation AND System Category 4 or 5
         const categoryCode = p.system?.categoryCode;
         if (isValidation && (categoryCode === 4 || categoryCode === 5)) {
           this.showFsCsTab.set(true);
-          // Cat 4: Functional + Configuration
-          // Cat 5: Functional + Design (we use same table but different type)
           if (categoryCode === 4) {
             this.fsCsReqTypes.set(['Functional', 'Configuration']);
           } else {
             this.fsCsReqTypes.set(['Functional', 'Design']);
           }
-          // Load Custom Fields Logic
           this.loadFsCsData(p.id, this.fsCsReqTypes());
         } else {
           this.showFsCsTab.set(false);
@@ -229,7 +287,6 @@ export class LifecycleProjectDetail {
 
         this.loading.set(false);
 
-        // Load custom fields schema + artifact values if URS tab is shown
         if (isValidation) {
           this.loadCustomFieldsSchema();
           this.loadUrsArtifact(p.id);
@@ -240,17 +297,15 @@ export class LifecycleProjectDetail {
         this.loading.set(false);
       },
     });
-  });
+  }
 
-  /** Load the custom fields schema by name. If not found, leave null (section hidden). */
   private loadCustomFieldsSchema(): void {
     this.customFieldsService.getSchemaByName('csv.urs_artifact').subscribe({
       next: (schema) => this.customFieldsSchema.set(schema),
-      error: () => this.customFieldsSchema.set(null), // Not found → hide section
+      error: () => this.customFieldsSchema.set(null),
     });
   }
 
-  /** Load the URS artifact to get its custom field values. */
   private loadUrsArtifact(projectId: string): void {
     this.ursService.getOrCreateArtifact(projectId).subscribe({
       next: (artifact) => {
@@ -260,12 +315,10 @@ export class LifecycleProjectDetail {
     });
   }
 
-  /** Called when any custom field value changes in the renderer */
   protected onCustomFieldsChanged(values: Record<string, unknown>): void {
     this.customFieldValues.set(values);
   }
 
-  /** Persist the current custom field values to the artifact (URS) */
   protected saveCustomFields(): void {
     if (!this.ursArtifact) return;
 
@@ -282,32 +335,75 @@ export class LifecycleProjectDetail {
       });
   }
 
-  // ─── FS/CS Custom Fields Logic ─────────────────────
+  protected exportProject(): void {
+    const p = this.project();
+    if (!p) return;
 
-  /** Schemas for FS, CS, DS */
-  protected readonly fsCsSchemas = signal<Record<string, CustomFieldsSchema | null>>({});
-  /** Values per type (namespaced) */
-  protected readonly fsCsValues = signal<Record<string, Record<string, unknown>>>({});
-  protected readonly savingFsCs = signal<Record<string, boolean>>({});
+    this.isExporting.set(true);
+    this.importExportService
+      .exportArtifacts(p.id, p.code.toString(), p.system?.name || 'Project')
+      .subscribe({
+        next: () => this.isExporting.set(false),
+        error: () => this.isExporting.set(false),
+      });
+  }
 
-  private fsCsArtifact: FsCsArtifact | null = null;
-  private readonly fsCsService = inject(FsCsService); // Inject FsCsService
+  protected triggerImport(): void {
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    if (fileInput) fileInput.click();
+  }
 
-  /** Load schemas for enabled types and fetch artifact */
+  protected onImportFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+
+    const file = input.files[0];
+    this.importExportService
+      .parseImportFile(file)
+      .then((data) => {
+        this.importData.set(data);
+        this.importDialogVisible.set(true);
+        input.value = '';
+      })
+      .catch((err) => {
+        console.error('Failed to parse import file', err);
+      });
+  }
+
+  protected onImportConfirm(selection: {
+    ursReqsToImport: ExportUrsRequirement[];
+    fsCsReqsToImport: ExportFsCsRequirement[];
+  }): void {
+    const p = this.project();
+    if (!p) return;
+
+    this.loading.set(true);
+    this.importExportService
+      .executeImport(
+        p.id,
+        this.importData()!,
+        selection.ursReqsToImport,
+        selection.fsCsReqsToImport,
+      )
+      .then(() => {
+        this.loading.set(false);
+        this.reloadProjectData(p.id);
+      })
+      .catch(() => {
+        this.loading.set(false);
+      });
+  }
+
   private loadFsCsData(projectId: string, types: FsCsRequirementType[]) {
-    // 1. Load Artifact
     this.fsCsService.getOrCreateArtifact(projectId).subscribe({
       next: (artifact) => {
         this.fsCsArtifact = artifact;
-        // Parse current values (defaulting to empty object if null)
         const currentVals =
           (artifact.customFieldValues as Record<string, Record<string, unknown>>) || {};
         this.fsCsValues.set(currentVals);
       },
     });
 
-    // 2. Load Schemas for each type
-    // Schema names: csv.spec.functional, csv.spec.configuration, csv.spec.design
     types.forEach((type) => {
       const schemaName = `csv.spec.${type.toLowerCase()}`;
       this.customFieldsService.getSchemaByName(schemaName).subscribe({
@@ -331,13 +427,9 @@ export class LifecycleProjectDetail {
   protected saveFsCsFields(type: string) {
     if (!this.fsCsArtifact) return;
 
-    // Set loading state for this specific type
     this.savingFsCs.update((prev) => ({ ...prev, [type]: true }));
-
-    // Merge changes into the artifact's full values object
     const currentAllValues = this.fsCsValues();
 
-    // We update the whole object in DB
     this.fsCsService.updateArtifactCustomFields(this.fsCsArtifact.id, currentAllValues).subscribe({
       next: (updated) => {
         this.fsCsArtifact = updated;
