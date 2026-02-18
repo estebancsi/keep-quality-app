@@ -96,5 +96,17 @@ export const routes: Routes = [
       },
     ],
   },
+  {
+    path: 'ai-chat',
+    component: AppLayout,
+    canActivateChild: [autoLoginPartialRoutesGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/ai-chat/ai-chat.component').then((m) => m.AiChatComponent),
+      },
+    ],
+  },
   { path: '**', redirectTo: 'notfound' },
 ];

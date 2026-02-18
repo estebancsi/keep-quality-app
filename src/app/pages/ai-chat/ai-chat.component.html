@@ -1,0 +1,101 @@
+<div class="flex flex-col h-full gap-4 p-4">
+  <p-card class="flex-none shadow-sm border surface-border">
+    <div class="flex flex-wrap gap-4 items-end">
+      <div class="flex flex-col gap-2">
+        <span class="font-bold text-sm">Provider</span>
+        <p-selectButton
+          [options]="providers"
+          [(ngModel)]="selectedProvider"
+          (onChange)="onProviderChange()"
+          optionLabel="label"
+          optionValue="value"
+          aria-label="Select AI provider"
+        >
+        </p-selectButton>
+      </div>
+
+      <div class="flex flex-col gap-2 grow max-w-xs">
+        <label for="model-select" class="font-bold text-sm">Model</label>
+        <p-select
+          id="model-select"
+          [options]="currentModels"
+          [(ngModel)]="selectedModel"
+          optionLabel="name"
+          placeholder="Select a Model"
+          class="w-full"
+          appendTo="body"
+        >
+        </p-select>
+      </div>
+
+      <div class="flex flex-col gap-2 grow">
+        <label for="systemPrompt" class="font-bold text-sm">System Prompt</label>
+        <input
+          pInputText
+          id="systemPrompt"
+          [(ngModel)]="systemPrompt"
+          class="w-full"
+          placeholder="Enter system instructions..."
+        />
+      </div>
+    </div>
+  </p-card>
+
+  <p-scrollPanel
+    class="grow border rounded-xl surface-card surface-border overflow-hidden"
+    [style]="{ width: '100%', height: 'calc(100vh - 280px)' }"
+  >
+    <div class="flex flex-col gap-4 p-4">
+      @for (msg of messages(); track $index) {
+        <div
+          class="max-w-[85%] p-4 rounded-2xl shadow-sm transition-all duration-200"
+          [class.self-end]="msg.role === 'user'"
+          [class.bg-primary]="msg.role === 'user'"
+          [class.text-primary-contrast]="msg.role === 'user'"
+          [class.self-start]="msg.role === 'assistant'"
+          [class.surface-card]="msg.role === 'assistant'"
+          [class.border]="msg.role === 'assistant'"
+          [class.surface-border]="msg.role === 'assistant'"
+          [class.text-color]="msg.role === 'assistant'"
+        >
+          <div class="font-bold text-[10px] uppercase tracking-wider mb-2 opacity-60">
+            {{ msg.role === 'user' ? 'You' : selectedModel()?.name || 'AI Assistant' }}
+          </div>
+          <div class="whitespace-pre-wrap leading-relaxed">{{ msg.content }}</div>
+        </div>
+      } @empty {
+        <div class="flex flex-col items-center justify-center py-20 text-muted-color gap-4">
+          <i class="pi pi-comments text-4xl opacity-20"></i>
+          <p class="text-sm font-medium">Start a conversation to see the AI's response</p>
+        </div>
+      }
+    </div>
+  </p-scrollPanel>
+
+  <div
+    class="flex-none flex items-center gap-3 bg-surface-ground p-2 rounded-xl border border-surface-border"
+  >
+    <textarea
+      #chatInput
+      pTextarea
+      [(ngModel)]="userInput"
+      [autoResize]="true"
+      rows="1"
+      class="grow border-none! shadow-none! bg-transparent! focus:ring-0! resize-none"
+      (keydown.enter)="$event.preventDefault(); sendMessage()"
+      placeholder="Type your message here..."
+    >
+    </textarea>
+    <p-button
+      icon="pi pi-send"
+      (onClick)="sendMessage()"
+      [loading]="isLoading()"
+      [disabled]="!userInput() || isLoading()"
+      class="p-button-rounded"
+      [style]="{ width: '40px', height: '40px' }"
+      severity="primary"
+      aria-label="Send message"
+    >
+    </p-button>
+  </div>
+</div>
