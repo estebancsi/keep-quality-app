@@ -108,5 +108,12 @@ export const routes: Routes = [
       },
     ],
   },
+  {
+    path: 'system-prompts',
+    component: AppLayout,
+    canActivateChild: [autoLoginPartialRoutesGuard],
+    loadChildren: () =>
+      import('./modules/system-prompts/system-prompts.routes').then((m) => m.SYSTEM_PROMPTS_ROUTES),
+  },
   { path: '**', redirectTo: 'notfound' },
 ];

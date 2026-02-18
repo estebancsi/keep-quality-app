@@ -1,0 +1,71 @@
+<div class="card">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-2xl font-bold m-0">System Prompts</h1>
+    <p-button label="Create Prompt" icon="pi pi-plus" (onClick)="openCreateDialog()"></p-button>
+  </div>
+
+  <p-table
+    [value]="prompts()"
+    [paginator]="true"
+    [rows]="10"
+    [showCurrentPageReport]="true"
+    [tableStyle]="{ 'min-width': '50rem' }"
+    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+    [rowsPerPageOptions]="[10, 25, 50]"
+    styleClass="p-datatable-sm"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 20%">Name</th>
+        <th style="width: 30%">Description</th>
+        <th style="width: 10%">Active</th>
+        <th style="width: 20%">Created At</th>
+        <th style="width: 20%">Actions</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-prompt>
+      <tr>
+        <td>{{ prompt.name }}</td>
+        <td>{{ prompt.description }}</td>
+        <td>
+          <i
+            class="pi"
+            [ngClass]="{
+              'pi-check-circle text-green-500': prompt.isActive,
+              'pi-times-circle text-red-500': !prompt.isActive,
+            }"
+          ></i>
+        </td>
+        <td>{{ prompt.createdAt | date: 'medium' }}</td>
+        <td>
+          <div class="flex gap-2">
+            <p-button
+              icon="pi pi-pencil"
+              pTooltip="Edit"
+              tooltipPosition="top"
+              severity="secondary"
+              [text]="true"
+              (onClick)="openEditDialog(prompt)"
+            ></p-button>
+            <p-button
+              icon="pi pi-trash"
+              pTooltip="Delete"
+              tooltipPosition="top"
+              severity="danger"
+              [text]="true"
+              (onClick)="deletePrompt(prompt)"
+            ></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="5" class="text-center p-4">No system prompts found.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-confirmDialog [style]="{ width: '450px' }"></p-confirmDialog>
+<p-toast></p-toast>
