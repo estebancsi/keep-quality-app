@@ -1,4 +1,11 @@
-import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  computed,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
@@ -6,6 +13,9 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 import { CheckboxModule } from 'primeng/checkbox';
+import { SelectModule } from 'primeng/select';
+import { SliderModule } from 'primeng/slider';
+import { AiService, ModelInfo } from '@/core/services/ai.service';
 import { SystemPromptsService } from '@/core/services/system-prompts.service';
 import {
   CreateSystemPromptDto,
@@ -22,6 +32,8 @@ import {
     InputTextModule,
     TextareaModule,
     CheckboxModule,
+    SelectModule,
+    SliderModule,
   ],
   template: `
     <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-4 p-4">
@@ -42,6 +54,44 @@ import {
           rows="2"
           class="w-full"
         ></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="flex flex-col gap-2">
+          <label for="provider" class="font-bold">Provider</label>
+          <p-select
+            [options]="providers()"
+            formControlName="provider"
+            placeholder="Select a Provider"
+            [style]="{ width: '100%' }"
+            (onChange)="onProviderChange()"
+          ></p-select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="model" class="font-bold">Model</label>
+          <p-select
+            [options]="availableModels()"
+            optionLabel="name"
+            optionValue="id"
+            formControlName="model"
+            placeholder="Select a Model"
+            [style]="{ width: '100%' }"
+            [disabled]="!form.get('provider')?.value"
+          ></p-select>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="temperature" class="font-bold"
+          >Temperature: {{ form.get('temperature')?.value }}</label
+        >
+        <p-slider
+          formControlName="temperature"
+          [min]="0"
+          [max]="1"
+          [step]="0.1"
+          [style]="{ width: '100%' }"
+        ></p-slider>
       </div>
 
       <div class="flex flex-col gap-2">
@@ -103,6 +153,7 @@ import {
 export class SystemPromptFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private systemPromptsService = inject(SystemPromptsService);
+  private aiService = inject(AiService);
   private ref = inject(DynamicDialogRef);
   private config = inject(DynamicDialogConfig);
 
@@ -111,12 +162,25 @@ export class SystemPromptFormComponent implements OnInit {
   isEditMode = false;
   promptId: string | null = null;
 
+  modelsMap = signal<Record<string, ModelInfo[]> | null>(null);
+  providers = computed(() => Object.keys(this.modelsMap() || {}));
+
+  // Start with empty array, will be computed based on selected provider
+  availableModels = signal<ModelInfo[]>([]);
+
   ngOnInit() {
+    this.initForm();
+    this.loadModels();
+  }
+
+  private initForm() {
     const prompt = this.config.data?.prompt;
     this.isEditMode = !!prompt;
     if (this.isEditMode) {
       this.promptId = prompt.id;
     }
+
+    const modelConfig = prompt?.modelConfig || {};
 
     this.form = this.fb.group({
       name: [prompt?.name || '', [Validators.required]],
@@ -124,7 +188,44 @@ export class SystemPromptFormComponent implements OnInit {
       systemPromptTemplate: [prompt?.systemPromptTemplate || '', [Validators.required]],
       userPromptTemplate: [prompt?.userPromptTemplate || '', [Validators.required]],
       isActive: [prompt?.isActive ?? true],
+      provider: [modelConfig['provider'] || 'google', [Validators.required]],
+      model: [modelConfig['model'] || 'gemini-2.0-flash-exp', [Validators.required]],
+      temperature: [modelConfig['temperature'] || 0.7, [Validators.required]],
     });
+
+    // Handle initial available models if provider is set
+    // We defer this until models are loaded
+  }
+
+  private loadModels() {
+    this.aiService.getModels().subscribe({
+      next: (models) => {
+        this.modelsMap.set(models);
+        this.updateAvailableModels();
+      },
+      error: (err) => console.error('Failed to load models:', err),
+    });
+  }
+
+  onProviderChange() {
+    this.updateAvailableModels();
+    // Reset model selection if current model is not in new provider's list
+    const currentProvider = this.form.get('provider')?.value;
+    const currentModel = this.form.get('model')?.value;
+    const models = this.modelsMap()?.[currentProvider] || [];
+
+    if (!models.find((m) => m.id === currentModel)) {
+      this.form.patchValue({ model: models[0]?.id || '' });
+    }
+  }
+
+  private updateAvailableModels() {
+    const provider = this.form.get('provider')?.value;
+    if (provider && this.modelsMap()) {
+      this.availableModels.set(this.modelsMap()![provider] || []);
+    } else {
+      this.availableModels.set([]);
+    }
   }
 
   save() {
@@ -139,7 +240,11 @@ export class SystemPromptFormComponent implements OnInit {
       system_prompt_template: formValue.systemPromptTemplate,
       user_prompt_template: formValue.userPromptTemplate,
       is_active: formValue.isActive,
-      model_config: {}, // Default for now, can extend form later
+      model_config: {
+        provider: formValue.provider,
+        model: formValue.model,
+        temperature: formValue.temperature,
+      },
     };
 
     if (this.isEditMode && this.promptId) {

@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -34,7 +34,29 @@ export class SystemPromptsListComponent {
   private dialogService = inject(DialogService);
   private confirmationService = inject(ConfirmationService);
 
+  // Use a signal for refresh trigger
+  private refreshTrigger = signal(0);
+
+  // Prompts derived from service call + refresh trigger
   prompts = toSignal(this.systemPromptsService.getAllPrompts(), { initialValue: [] });
+
+  // Methods to handle manual refresh if needed, but toSignal handles initial subscription
+  // To truly refresh on signal change, we need to switchMap or similar,
+  // but toSignal with just service call is static.
+  // Better approach: use a resource or just manually load into a signal.
+
+  promptsList = signal<SystemPrompt[]>([]);
+
+  constructor() {
+    this.loadPrompts();
+  }
+
+  loadPrompts() {
+    this.systemPromptsService.getAllPrompts().subscribe((data) => {
+      this.promptsList.set(data);
+    });
+  }
+
   ref: DynamicDialogRef<SystemPromptFormComponent> | null = null;
 
   openCreateDialog() {
@@ -46,13 +68,11 @@ export class SystemPromptsListComponent {
       maximizable: true,
     });
 
-    if (this.ref) {
-      this.ref.onClose.subscribe((result) => {
-        if (result) {
-          window.location.reload();
-        }
-      });
-    }
+    this.ref?.onClose.subscribe((result) => {
+      if (result) {
+        this.loadPrompts();
+      }
+    });
   }
 
   openEditDialog(prompt: SystemPrompt) {
@@ -65,13 +85,11 @@ export class SystemPromptsListComponent {
       data: { prompt },
     });
 
-    if (this.ref) {
-      this.ref.onClose.subscribe((result) => {
-        if (result) {
-          window.location.reload();
-        }
-      });
-    }
+    this.ref?.onClose.subscribe((result) => {
+      if (result) {
+        this.loadPrompts();
+      }
+    });
   }
 
   deletePrompt(prompt: SystemPrompt) {
@@ -81,8 +99,11 @@ export class SystemPromptsListComponent {
       icon: 'pi pi-exclamation-triangle',
       accept: () => {
         this.systemPromptsService.deletePrompt(prompt.id).subscribe(() => {
-          window.location.reload();
+          this.loadPrompts();
         });
+      },
+      reject: () => {
+        // Optional: Handle rejection or do nothing
       },
     });
   }
