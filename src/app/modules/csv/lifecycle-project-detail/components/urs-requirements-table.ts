@@ -7,8 +7,10 @@ import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { EditorModule } from 'primeng/editor';
+import { DialogModule } from 'primeng/dialog';
 import { UrsService } from '../../services/urs.service';
 import { UrsRequirement } from '../../urs.interface';
+import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
 
 @Component({
   selector: 'app-urs-requirements-table',
@@ -20,6 +22,8 @@ import { UrsRequirement } from '../../urs.interface';
     TooltipModule,
     ConfirmDialogModule,
     EditorModule,
+    DialogModule,
+    AiActionButtonComponent,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,7 +56,7 @@ import { UrsRequirement } from '../../urs.interface';
             <th style="width: 3rem" aria-label="Drag handle"></th>
             <th style="width: 5rem">Code</th>
             <th>Description</th>
-            <th style="width: 6rem">Actions</th>
+            <th style="width: 8rem">Actions</th>
           </tr>
         </ng-template>
 
@@ -123,15 +127,18 @@ import { UrsRequirement } from '../../urs.interface';
             </td>
             <td>
               <div class="flex gap-1">
-                <p-button
-                  icon="pi pi-pencil"
-                  [rounded]="true"
+                <app-ai-action-button
+                  action="csv.spec:assist"
+                  label=""
+                  [context]="{ description: req.description }"
+                  tooltip="AI Assist"
+                  icon="pi pi-sparkles"
+                  [outlined]="true"
                   [text]="true"
-                  severity="info"
+                  severity="help"
                   size="small"
-                  (click)="startEdit(req)"
-                  pTooltip="Edit"
-                />
+                  (actionSuccess)="onAiSuccess($event, req)"
+                ></app-ai-action-button>
                 <p-button
                   icon="pi pi-trash"
                   [rounded]="true"
@@ -164,6 +171,55 @@ import { UrsRequirement } from '../../urs.interface';
       </p-table>
     </div>
 
+    <!-- AI Review Dialog -->
+    <p-dialog
+      header="AI Assistant Review"
+      [(visible)]="reviewDialogVisible"
+      [modal]="true"
+      [style]="{ width: '50vw' }"
+      [draggable]="false"
+      [resizable]="false"
+    >
+      @if (aiReviewData) {
+        <div class="flex flex-col gap-4">
+          <div
+            class="p-3 bg-surface-50 dark:bg-surface-900 rounded-md border border-surface-200 dark:border-surface-700"
+          >
+            <h4 class="font-semibold mb-2 text-primary-600">Critique</h4>
+            <p class="m-0 text-sm whitespace-pre-wrap">{{ aiReviewData.critique }}</p>
+          </div>
+
+          <div>
+            <h4 class="font-semibold mb-2 text-green-600">Recommendation</h4>
+            <div
+              class="p-3 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800"
+            >
+              <p class="m-0 italic" [innerHTML]="aiReviewData.recommendation"></p>
+            </div>
+          </div>
+        </div>
+      }
+
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Discard"
+            icon="pi pi-times"
+            (click)="closeReviewDialog()"
+            severity="secondary"
+            [text]="true"
+          />
+          <p-button
+            label="Accept Recommendation"
+            icon="pi pi-check"
+            (click)="acceptAiRecommendation()"
+            severity="success"
+            [autofocus]="true"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
+
     <p-confirmDialog />
   `,
 })
@@ -180,6 +236,11 @@ export class UrsRequirementsTable {
   protected readonly saving = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected editDescription = '';
+
+  // AI Review State
+  protected reviewDialogVisible = false;
+  protected aiReviewData: { critique: string; recommendation: string } | null = null;
+  protected reviewingReq: UrsRequirement | null = null;
 
   private artifactId = '';
 
@@ -286,5 +347,40 @@ export class UrsRequirementsTable {
         });
       },
     });
+  }
+
+  // AI Actions
+  protected onAiSuccess(response: string, req: UrsRequirement): void {
+    try {
+      // Remove any markdown code fences if present (e.g. ```json ... ```)
+      const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      this.aiReviewData = JSON.parse(cleanedResponse);
+      this.reviewingReq = req;
+      this.reviewDialogVisible = true;
+    } catch (e) {
+      console.error('Failed to parse AI response', e);
+      // Fallback: just show the raw response as critique if not JSON
+      this.aiReviewData = {
+        critique: response,
+        recommendation: '',
+      };
+      this.reviewingReq = req;
+      this.reviewDialogVisible = true;
+    }
+  }
+
+  protected closeReviewDialog(): void {
+    this.reviewDialogVisible = false;
+    this.aiReviewData = null;
+    this.reviewingReq = null;
+  }
+
+  protected acceptAiRecommendation(): void {
+    if (this.reviewingReq && this.aiReviewData?.recommendation) {
+      this.editingId.set(this.reviewingReq.id);
+      this.editDescription = this.aiReviewData.recommendation;
+      this.saveEdit(this.reviewingReq);
+      this.closeReviewDialog();
+    }
   }
 }
