@@ -13,7 +13,7 @@ import {
 } from '../lifecycle-project.interface';
 import { UrsRequirementsTable } from './components/urs-requirements-table';
 import { FsCsRequirementsTable } from './components/fs-cs-requirements-table';
-import { FsCsRequirementType } from '../fs-cs.interface';
+import { FsCsArtifact, FsCsRequirementType } from '../fs-cs.interface';
 import { FsCsService } from '../services/fs-cs.service';
 import { CustomFieldsRendererComponent } from '@/shared/custom-fields/renderer/custom-fields-renderer.component';
 import { CustomFieldsService } from '@/shared/custom-fields/service/custom-fields.service';
@@ -290,7 +290,7 @@ export class LifecycleProjectDetail {
   protected readonly fsCsValues = signal<Record<string, Record<string, unknown>>>({});
   protected readonly savingFsCs = signal<Record<string, boolean>>({});
 
-  private fsCsArtifact: { id: string; customFieldValues?: Record<string, any> } | null = null;
+  private fsCsArtifact: FsCsArtifact | null = null;
   private readonly fsCsService = inject(FsCsService); // Inject FsCsService
 
   /** Load schemas for enabled types and fetch artifact */
@@ -300,7 +300,8 @@ export class LifecycleProjectDetail {
       next: (artifact) => {
         this.fsCsArtifact = artifact;
         // Parse current values (defaulting to empty object if null)
-        const currentVals = artifact.customFieldValues || {};
+        const currentVals =
+          (artifact.customFieldValues as Record<string, Record<string, unknown>>) || {};
         this.fsCsValues.set(currentVals);
       },
     });
@@ -340,7 +341,9 @@ export class LifecycleProjectDetail {
     this.fsCsService.updateArtifactCustomFields(this.fsCsArtifact.id, currentAllValues).subscribe({
       next: (updated) => {
         this.fsCsArtifact = updated;
-        this.fsCsValues.set(updated.customFieldValues ?? {});
+        this.fsCsValues.set(
+          (updated.customFieldValues as Record<string, Record<string, unknown>>) ?? {},
+        );
         this.savingFsCs.update((prev) => ({ ...prev, [type]: false }));
       },
       error: () => {

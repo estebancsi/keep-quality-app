@@ -12,7 +12,7 @@ export interface FsCsArtifact {
   updatedBy: string | null;
   createdAt: string;
   updatedAt: string;
-  customFieldValues?: Record<string, any>;
+  customFieldValues?: Record<string, unknown>;
 }
 
 /** Supabase row shape for csv_fs_cs_artifacts */
@@ -24,7 +24,7 @@ export interface FsCsArtifactDto {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
-  custom_field_values?: Record<string, any>; // JSONB
+  custom_field_values?: Record<string, unknown>; // JSONB
 }
 
 /** FS/CS requirement domain model */
