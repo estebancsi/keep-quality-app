@@ -247,7 +247,7 @@ export class FsCsService {
 
   updateArtifactCustomFields(
     id: string,
-    customFieldValues: Record<string, any>,
+    customFieldValues: Record<string, unknown>,
   ): Observable<FsCsArtifact> {
     return defer(async () =>
       this.supabase
