@@ -103,7 +103,7 @@ import { UrsArtifact } from '../urs.interface';
                   </div>
                 }
 
-                <app-urs-requirements-table [lifecycleProjectId]="p.id" />
+                <app-urs-requirements-table [lifecycleProjectId]="p.id" [system]="p.system" />
               </p-tabpanel>
 
               @if (showFsCsTab()) {

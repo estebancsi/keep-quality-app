@@ -19,7 +19,9 @@ export interface LifecycleProject {
   id: string;
   code: number;
   systemId: string;
-  system?: Pick<ComputerizedSystem, 'id' | 'name' | 'code'> & { categoryCode?: number };
+  system?: Pick<ComputerizedSystem, 'id' | 'name' | 'code' | 'version' | 'description'> & {
+    categoryCode?: number;
+  };
   type: LifecycleProjectType;
   status: LifecycleProjectStatus;
   startDate: string | null;
@@ -38,7 +40,7 @@ export interface LifecycleProjectDto {
   tenant_id?: string;
   code: number;
   system_id: string;
-  csv_systems?: Pick<ComputerizedSystemDto, 'id' | 'name' | 'code'> & {
+  csv_systems?: Pick<ComputerizedSystemDto, 'id' | 'name' | 'code' | 'version' | 'description'> & {
     csv_categories?: Pick<CsvCategoryDto, 'code'>;
   };
   type: string;

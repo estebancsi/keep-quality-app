@@ -48,7 +48,7 @@ import { switchMap } from 'rxjs';
             size="small"
             severity="help"
             [outlined]="true"
-            [context]="{ requirements: requirements() }"
+            [context]="{ requirements: requirements(), system: system() }"
             (actionSuccess)="onSpecGenerationSuccess($event)"
             tooltip="Generate Specifications from these requirements"
           />
@@ -301,6 +301,9 @@ export class UrsRequirementsTable {
   private readonly confirmationService = inject(ConfirmationService);
 
   readonly lifecycleProjectId = input.required<string>();
+  readonly system = input<
+    { name: string; version: string | null; description: string | null } | undefined
+  >();
 
   // State
   protected readonly requirements = signal<UrsRequirement[]>([]);
