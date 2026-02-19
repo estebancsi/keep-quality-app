@@ -6,6 +6,7 @@ import {
   inject,
   input,
   signal,
+  DestroyRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -26,6 +27,7 @@ import { FsCsService } from '../../services/fs-cs.service';
 import { UrsRequirement } from '../../urs.interface';
 import { FsCsRequirement, FsCsRequirementType } from '../../fs-cs.interface';
 import { switchMap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-risk-analysis-table',
@@ -453,6 +455,7 @@ import { switchMap } from 'rxjs';
   ],
 })
 export class RiskAnalysisTableComponent {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly riskService = inject(RiskAnalysisService);
   private readonly ursService = inject(UrsService);
   private readonly fsCsService = inject(FsCsService);
@@ -575,6 +578,7 @@ export class RiskAnalysisTableComponent {
   private artifactId = '';
 
   // Load data
+  // Load data
   private readonly loadEffect = effect(() => {
     const projectId = this.lifecycleProjectId();
     if (!projectId) return;
@@ -582,6 +586,19 @@ export class RiskAnalysisTableComponent {
     this.loading.set(true);
     this.loadData(projectId);
   });
+
+  constructor() {
+    // Subscribe to changes
+    this.ursService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+      const projectId = this.lifecycleProjectId();
+      if (projectId) this.loadTraceOptions(projectId);
+    });
+
+    this.fsCsService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+      const projectId = this.lifecycleProjectId();
+      if (projectId) this.loadTraceOptions(projectId);
+    });
+  }
 
   private loadData(projectId: string) {
     // 1. Get Risk Artifact

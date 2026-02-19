@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from 'primeng/api';
@@ -14,6 +22,7 @@ import { FsCsService } from '../../services/fs-cs.service';
 import { FsCsRequirement, FsCsRequirementType } from '../../fs-cs.interface';
 import { UrsService } from '../../services/urs.service';
 import { UrsRequirement } from '../../urs.interface';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-fs-cs-requirements-table',
@@ -229,6 +238,7 @@ import { UrsRequirement } from '../../urs.interface';
   `,
 })
 export class FsCsRequirementsTable {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly fsCsService = inject(FsCsService);
   private readonly ursService = inject(UrsService);
   private readonly confirmationService = inject(ConfirmationService);
@@ -268,6 +278,24 @@ export class FsCsRequirementsTable {
     this.loadData(projectId);
   });
 
+  constructor() {
+    // Subscribe to changes
+    this.fsCsService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+      // Reload this table's requirements
+      if (this.artifactId) {
+        this.loadRequirements();
+      }
+    });
+
+    this.ursService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+      // Reload URS options
+      const projectId = this.lifecycleProjectId();
+      if (projectId && this.artifactId) {
+        this.loadUrsOptions(projectId);
+      }
+    });
+  }
+
   private loadData(projectId: string) {
     // 1. Get FS/CS Artifact
     this.fsCsService.getOrCreateArtifact(projectId).subscribe({
@@ -279,6 +307,10 @@ export class FsCsRequirementsTable {
     });
 
     // 2. Get URS Requirements for options
+    this.loadUrsOptions(projectId);
+  }
+
+  private loadUrsOptions(projectId: string) {
     this.ursService.getOrCreateArtifact(projectId).subscribe({
       next: (ursArtifact) => {
         this.ursService.loadRequirements(ursArtifact.id).subscribe((ursReqs) => {

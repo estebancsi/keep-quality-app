@@ -1,6 +1,15 @@
 import { inject, Injectable } from '@angular/core';
 import { SupabaseService } from '@/core/services/supabase.service';
-import { catchError, defer, map, Observable, switchMap, throwError } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  defer,
+  map,
+  Observable,
+  switchMap,
+  tap,
+  throwError,
+} from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { OrganizationService } from '@/auth/organization.service';
 import {
@@ -18,6 +27,8 @@ export class FsCsService {
   private readonly supabase = inject(SupabaseService).client;
   private readonly messageService = inject(MessageService);
   private readonly orgService = inject(OrganizationService);
+
+  public readonly requirementsChanged = new BehaviorSubject<void>(undefined);
 
   // ─── Artifact ───────────────────────────────────────
 
@@ -117,6 +128,7 @@ export class FsCsService {
         });
         return this.requirementToDomain(data as FsCsRequirementDto);
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Create FS/CS Requirement')),
     );
   }
@@ -173,6 +185,7 @@ export class FsCsService {
         });
         return (data as FsCsRequirementDto[]).map((dto) => this.requirementToDomain(dto));
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Create FS/CS Requirements (Bulk)')),
     );
   }
@@ -227,6 +240,7 @@ export class FsCsService {
         });
         return (data as FsCsRequirementDto[]).map((dto) => this.requirementToDomain(dto));
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Create FS/CS Mixed Requirements')),
     );
   }
@@ -250,6 +264,7 @@ export class FsCsService {
         if (error) throw error;
         return this.requirementToDomain(data as FsCsRequirementDto);
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Update FS/CS Requirement')),
     );
   }
@@ -266,6 +281,7 @@ export class FsCsService {
           detail: 'Requirement deleted',
         });
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Delete FS/CS Requirement')),
     );
   }
@@ -282,7 +298,10 @@ export class FsCsService {
           .eq('id', id);
         if (error) throw error;
       }
-    }).pipe(catchError((error) => this.handleError(error, 'Update Positions')));
+    }).pipe(
+      tap(() => this.requirementsChanged.next()),
+      catchError((error) => this.handleError(error, 'Update Positions')),
+    );
   }
 
   // ─── Mapping ────────────────────────────────────────

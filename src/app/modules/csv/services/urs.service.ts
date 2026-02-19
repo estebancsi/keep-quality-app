@@ -1,6 +1,15 @@
 import { inject, Injectable } from '@angular/core';
 import { SupabaseService } from '@/core/services/supabase.service';
-import { catchError, defer, map, Observable, switchMap, throwError } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  defer,
+  map,
+  Observable,
+  switchMap,
+  tap,
+  throwError,
+} from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { OrganizationService } from '@/auth/organization.service';
 import { UrsArtifact, UrsArtifactDto, UrsRequirement, UrsRequirementDto } from '../urs.interface';
@@ -12,6 +21,8 @@ export class UrsService {
   private readonly supabase = inject(SupabaseService).client;
   private readonly messageService = inject(MessageService);
   private readonly orgService = inject(OrganizationService);
+
+  public readonly requirementsChanged = new BehaviorSubject<void>(undefined);
 
   // ─── Artifact ───────────────────────────────────────
 
@@ -122,6 +133,7 @@ export class UrsService {
         });
         return this.requirementToDomain(data as UrsRequirementDto);
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Create URS Requirement')),
     );
   }
@@ -140,6 +152,7 @@ export class UrsService {
         if (error) throw error;
         return this.requirementToDomain(data as UrsRequirementDto);
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Update URS Requirement')),
     );
   }
@@ -194,6 +207,7 @@ export class UrsService {
         });
         return (data as UrsRequirementDto[]).map((dto) => this.requirementToDomain(dto));
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Create URS Requirements (Bulk)')),
     );
   }
@@ -208,6 +222,7 @@ export class UrsService {
           detail: 'Requirement deleted',
         });
       }),
+      tap(() => this.requirementsChanged.next()),
       catchError((error) => this.handleError(error, 'Delete URS Requirement')),
     );
   }
@@ -225,7 +240,10 @@ export class UrsService {
           .eq('id', id);
         if (error) throw error;
       }
-    }).pipe(catchError((error) => this.handleError(error, 'Update Positions')));
+    }).pipe(
+      tap(() => this.requirementsChanged.next()),
+      catchError((error) => this.handleError(error, 'Update Positions')),
+    );
   }
 
   // ─── Mapping ────────────────────────────────────────

@@ -117,16 +117,16 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
                 <i class="pi pi-file-edit mr-2"></i>
                 User Requirements (URS)
               </p-tab>
-              @if (showRiskTab()) {
-                <p-tab value="risk-analysis">
-                  <i class="pi pi-shield mr-2"></i>
-                  Risk Analysis (FMEA)
-                </p-tab>
-              }
               @if (showFsCsTab()) {
                 <p-tab value="fs-cs">
                   <i class="pi pi-list mr-2"></i>
                   FS / CS / DS
+                </p-tab>
+              }
+              @if (showRiskTab()) {
+                <p-tab value="risk-analysis">
+                  <i class="pi pi-shield mr-2"></i>
+                  Risk Analysis (FMEA)
                 </p-tab>
               }
             </p-tablist>
