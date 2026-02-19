@@ -4,6 +4,7 @@ import { UrsService } from './urs.service';
 import { FsCsService } from './fs-cs.service';
 import { UrsCategory } from '../urs.interface';
 import { FsCsRequirementType } from '../fs-cs.interface';
+import { RiskAnalysisService } from './risk-analysis.service';
 
 // --- Export/Import Data Interfaces ---
 
@@ -20,6 +21,10 @@ export interface ExportData {
     customFields?: Record<string, unknown>; // Artifact level
     requirements: ExportFsCsRequirement[];
   };
+  riskAnalysis?: {
+    customFields?: Record<string, unknown>;
+    items: ExportRiskAnalysisItem[];
+  };
 }
 
 export interface ExportUrsRequirement {
@@ -32,6 +37,7 @@ export interface ExportUrsRequirement {
 }
 
 export interface ExportFsCsRequirement {
+  tempId: string; // generated temp ID for Risk Analysis tracing
   reqType: FsCsRequirementType;
   code: number;
   groupName: string | null; // e.g., 'Hardware', 'Software' sub-category
@@ -40,12 +46,29 @@ export interface ExportFsCsRequirement {
   traceUrsTempIds: string[]; // references ExportUrsRequirement.tempId
 }
 
+export interface ExportRiskAnalysisItem {
+  code: number;
+  position: number;
+  failureMode: string;
+  cause: string;
+  effect: string;
+  severity: number;
+  probability: number;
+  detectability: number;
+  rpn: number;
+  riskClass: number;
+  mitigation: string;
+  traceUrsTempIds: string[];
+  traceFsCsTempIds: string[];
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class ArtifactImportExportService {
   private readonly ursService = inject(UrsService);
   private readonly fsCsService = inject(FsCsService);
+  private readonly riskService = inject(RiskAnalysisService);
 
   /**
    * Export artifacts for a project to a JSON file.
@@ -54,21 +77,25 @@ export class ArtifactImportExportService {
     return forkJoin({
       ursArtifact: this.ursService.getOrCreateArtifact(projectId),
       fsCsArtifact: this.fsCsService.getOrCreateArtifact(projectId),
+      riskArtifact: this.riskService.getOrCreateArtifact(projectId),
     }).pipe(
-      switchMap(({ ursArtifact, fsCsArtifact }) =>
+      switchMap(({ ursArtifact, fsCsArtifact, riskArtifact }) =>
         forkJoin({
           ursReqs: this.ursService.loadRequirements(ursArtifact.id),
           fsCsReqs: this.fsCsService.loadRequirements(fsCsArtifact.id),
+          riskItems: this.riskService.loadItems(riskArtifact.id),
         }).pipe(
-          map(({ ursReqs, fsCsReqs }) => ({
+          map(({ ursReqs, fsCsReqs, riskItems }) => ({
             ursArtifact,
             fsCsArtifact,
+            riskArtifact,
             ursReqs,
             fsCsReqs,
+            riskItems,
           })),
         ),
       ),
-      map(({ ursArtifact, ursReqs, fsCsArtifact, fsCsReqs }) => {
+      map(({ ursArtifact, ursReqs, fsCsArtifact, fsCsReqs, riskArtifact, riskItems }) => {
         const data = this.buildExportData(
           projectCode,
           projectName,
@@ -76,6 +103,8 @@ export class ArtifactImportExportService {
           ursReqs,
           fsCsArtifact,
           fsCsReqs,
+          riskArtifact,
+          riskItems,
         );
         this.downloadJson(
           data,
@@ -91,10 +120,41 @@ export class ArtifactImportExportService {
   private buildExportData(
     projectCode: string,
     projectName: string,
-    ursArtifact: any,
-    ursReqs: any[],
-    fsCsArtifact: any,
-    fsCsReqs: any[],
+    ursArtifact: { customFieldValues?: any },
+    ursReqs: {
+      id: string;
+      code: number;
+      position: number;
+      description: string;
+      category: UrsCategory;
+      groupName: string | null;
+    }[],
+    fsCsArtifact: { customFieldValues?: any },
+    fsCsReqs: {
+      id: string;
+      reqType: FsCsRequirementType;
+      code: number;
+      groupName: string | null;
+      position: number;
+      description: string;
+      traceUrsIds?: string[];
+    }[],
+    riskArtifact: { customFieldValues?: any },
+    riskItems: {
+      code: number;
+      position: number;
+      failureMode: string;
+      cause: string;
+      effect: string;
+      severity: number;
+      probability: number;
+      detectability: number;
+      rpn: number;
+      riskClass: number;
+      mitigation: string;
+      traceUrsIds?: string[];
+      traceFsCsIds?: string[];
+    }[],
   ): ExportData {
     // 1. Map URS IDs to Temp IDs
     const ursIdMap = new Map<string, string>(); // realId -> tempId
@@ -112,18 +172,50 @@ export class ArtifactImportExportService {
     });
 
     // 2. Map FS/CS Requirements and resolve traces
-    const exportFsCsReqs: ExportFsCsRequirement[] = fsCsReqs.map((req) => {
+    const fsCsIdMap = new Map<string, string>(); // realId -> tempId
+    const exportFsCsReqs: ExportFsCsRequirement[] = fsCsReqs.map((req, index) => {
+      const tempId = `fscs_temp_${index + 1}`;
+      fsCsIdMap.set(req.id, tempId);
+
       const traceUrsTempIds = (req.traceUrsIds || [])
         .map((realId: string) => ursIdMap.get(realId))
         .filter((tempId: string | undefined): tempId is string => !!tempId);
 
       return {
+        tempId,
         reqType: req.reqType,
         code: req.code,
         groupName: req.groupName, // mapped from category
         position: req.position,
         description: req.description,
         traceUrsTempIds,
+      };
+    });
+
+    // 3. Map Risk Analysis Items and resolve traces
+    const exportRiskItems: ExportRiskAnalysisItem[] = riskItems.map((item) => {
+      const traceUrsTempIds = (item.traceUrsIds || [])
+        .map((realId: string) => ursIdMap.get(realId))
+        .filter((tempId: string | undefined): tempId is string => !!tempId);
+
+      const traceFsCsTempIds = (item.traceFsCsIds || [])
+        .map((realId: string) => fsCsIdMap.get(realId))
+        .filter((tempId: string | undefined): tempId is string => !!tempId);
+
+      return {
+        code: item.code,
+        position: item.position,
+        failureMode: item.failureMode,
+        cause: item.cause,
+        effect: item.effect,
+        severity: item.severity,
+        probability: item.probability,
+        detectability: item.detectability,
+        rpn: item.rpn,
+        riskClass: item.riskClass,
+        mitigation: item.mitigation,
+        traceUrsTempIds,
+        traceFsCsTempIds,
       };
     });
 
@@ -139,6 +231,10 @@ export class ArtifactImportExportService {
       fsCs: {
         customFields: fsCsArtifact.customFieldValues || {},
         requirements: exportFsCsReqs,
+      },
+      riskAnalysis: {
+        customFields: riskArtifact.customFieldValues || {},
+        items: exportRiskItems,
       },
     };
   }
@@ -186,10 +282,12 @@ export class ArtifactImportExportService {
     data: ExportData,
     ursReqsToImport: ExportUrsRequirement[],
     fsCsReqsToImport: ExportFsCsRequirement[],
+    riskItemsToImport: ExportRiskAnalysisItem[],
   ): Promise<void> {
     // 1. Get or Create Artifacts
     const ursArtifact = await lastValueFrom(this.ursService.getOrCreateArtifact(projectId));
     const fsCsArtifact = await lastValueFrom(this.fsCsService.getOrCreateArtifact(projectId));
+    const riskArtifact = await lastValueFrom(this.riskService.getOrCreateArtifact(projectId));
 
     // 2. Update Custom Fields (if present in export)
     if (data.urs?.customFields && Object.keys(data.urs.customFields).length > 0) {
@@ -201,6 +299,15 @@ export class ArtifactImportExportService {
     if (data.fsCs?.customFields && Object.keys(data.fsCs.customFields).length > 0) {
       const newFields = { ...(fsCsArtifact.customFieldValues || {}), ...data.fsCs.customFields };
       await lastValueFrom(this.fsCsService.updateArtifactCustomFields(fsCsArtifact.id, newFields));
+    }
+    if (data.riskAnalysis?.customFields && Object.keys(data.riskAnalysis.customFields).length > 0) {
+      const existing = (riskArtifact.customFieldValues || {}) as Record<string, unknown>;
+      const incoming = (data.riskAnalysis.customFields || {}) as Record<string, unknown>;
+      const newFields = {
+        ...existing,
+        ...incoming,
+      };
+      await lastValueFrom(this.riskService.updateArtifactCustomFields(riskArtifact.id, newFields));
     }
 
     // 3. Import URS Requirements
@@ -234,6 +341,8 @@ export class ArtifactImportExportService {
     }
 
     // 4. Import FS/CS Requirements
+    const fsCsTempIdToNewIdMap = new Map<string, string>();
+
     if (fsCsReqsToImport.length > 0) {
       const fsCsInserts = fsCsReqsToImport.map((req) => {
         // Resolve Traces
@@ -252,11 +361,54 @@ export class ArtifactImportExportService {
         };
       });
 
-      // Split by type? standard createRequirements takes `reqType`?
-      // No, `createMixedRequirements` handles mixed types.
-      // I need to add `createMixedRequirements` to `FsCsService`?
-      // `FsCsService` has `createMixedRequirements` (I saw it in view_file).
-      await lastValueFrom(this.fsCsService.createMixedRequirements(fsCsArtifact.id, fsCsInserts));
+      const createdFsCsReqs = await lastValueFrom(
+        this.fsCsService.createMixedRequirements(fsCsArtifact.id, fsCsInserts),
+      );
+
+      // Populate map: fsCsReqsToImport[i].tempId -> createdFsCsReqs[i].id
+      fsCsReqsToImport.forEach((req, index) => {
+        if (createdFsCsReqs[index]) {
+          fsCsTempIdToNewIdMap.set(req.tempId, createdFsCsReqs[index].id);
+        }
+      });
+    }
+
+    // 5. Import Risk Analysis Items
+    if (riskItemsToImport.length > 0) {
+      // Since RiskService doesn't have a bulk create, we use loop for now.
+      // We iterate to create items sequentially or in parallel.
+
+      const promises = riskItemsToImport.map((item) => {
+        const validTraceUrsIds = (item.traceUrsTempIds || [])
+          .map((tempId) => tempIdToNewIdMap.get(tempId))
+          .filter((id): id is string => !!id);
+
+        const validTraceFsCsIds = (item.traceFsCsTempIds || [])
+          .map((tempId) => fsCsTempIdToNewIdMap.get(tempId))
+          .filter((id): id is string => !!id);
+
+        return lastValueFrom(this.riskService.createItem(riskArtifact.id, item.position)).then(
+          (newItem) => {
+            return lastValueFrom(
+              this.riskService.updateItem(newItem.id, {
+                failureMode: item.failureMode,
+                cause: item.cause,
+                effect: item.effect,
+                severity: item.severity,
+                probability: item.probability,
+                detectability: item.detectability,
+                rpn: item.rpn,
+                riskClass: item.riskClass,
+                mitigation: item.mitigation,
+                traceUrsIds: validTraceUrsIds,
+                traceFsCsIds: validTraceFsCsIds,
+              }),
+            );
+          },
+        );
+      });
+
+      await Promise.all(promises);
     }
   }
 }

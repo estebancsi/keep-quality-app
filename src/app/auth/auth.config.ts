@@ -17,6 +17,12 @@ const waitForConfig$ = (
     take(1),
     map(() => {
       const config = configService.oidc();
+      let scope = config.scope;
+      const activeOrgId = localStorage.getItem('activeOrgId');
+      if (activeOrgId) {
+        scope = `${scope} urn:zitadel:iam:org:id:${activeOrgId}`;
+      }
+
       return {
         authority: config.authority,
         redirectUrl: window.location.origin,
@@ -25,7 +31,7 @@ const waitForConfig$ = (
         forbiddenRoute: '/forbidden',
         unauthorizedRoute: '/unauthorized',
         clientId: config.clientId,
-        scope: config.scope,
+        scope: scope,
         responseType: 'code',
         silentRenew: true,
         useRefreshToken: true,

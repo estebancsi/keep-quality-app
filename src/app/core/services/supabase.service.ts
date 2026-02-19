@@ -15,6 +15,26 @@ export class SupabaseService {
   private cachedSupabaseToken: string | null = null;
   private cachedOidcToken: string | null = null;
 
+  private isTokenExpired(token: string): boolean {
+    const payload = decodeJwt(token);
+    if (!payload?.exp) {
+      return true;
+    }
+    const expirationTime = payload.exp * 1000;
+    const now = Date.now();
+    const buffer = 2 * 60 * 1000; // 2 minutes buffer
+    return expirationTime - now < buffer;
+  }
+
+  private hasCorrectOrgClaim(token: string): boolean {
+    const activeOrgId = localStorage.getItem('activeOrgId');
+    if (!activeOrgId) return true; // No active org to enforce
+
+    const payload = decodeJwt(token);
+    const tokenOrgId = payload?.['urn:zitadel:iam:org:id'];
+    return tokenOrgId === activeOrgId;
+  }
+
   get client(): SupabaseClient {
     if (this._client) {
       return this._client;
@@ -52,9 +72,28 @@ export class SupabaseService {
       return '';
     }
 
-    // 2. Check cache
+    // 2. Check cache and expiration and org claim
     if (this.cachedOidcToken === oidcToken && this.cachedSupabaseToken) {
-      return this.cachedSupabaseToken;
+      if (
+        !this.isTokenExpired(this.cachedSupabaseToken) &&
+        this.hasCorrectOrgClaim(this.cachedSupabaseToken)
+      ) {
+        return this.cachedSupabaseToken;
+      }
+
+      if (!this.hasCorrectOrgClaim(this.cachedSupabaseToken)) {
+        // We might also need to force the OIDC token to refresh if it doesn't have the claim either
+        const oidcPayload = decodeJwt(oidcToken);
+        const oidcOrgId = oidcPayload?.['urn:zitadel:iam:org:id'];
+        const activeOrgId = localStorage.getItem('activeOrgId');
+
+        if (activeOrgId && oidcOrgId !== activeOrgId) {
+          // To prevent infinite loops we don't await the force refresh here, we let it happen
+          // in the background. The current call might fail if Supabase strictly requires the org,
+          // but the next query will succeed.
+          this.oidcSecurityService.forceRefreshSession().subscribe();
+        }
+      }
     }
 
     // 3. Exchange Token
@@ -87,5 +126,22 @@ export class SupabaseService {
 
     const data = await response.json();
     return data.supabaseJwt;
+  }
+}
+
+function decodeJwt(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error decoding JWT', error);
+    return null;
   }
 }

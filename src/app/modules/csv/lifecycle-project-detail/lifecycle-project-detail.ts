@@ -26,6 +26,7 @@ import {
   ExportData,
   ExportUrsRequirement,
   ExportFsCsRequirement,
+  ExportRiskAnalysisItem,
 } from '../services/artifact-import-export.service';
 import { ArtifactImportDialogComponent } from '../components/artifact-import-dialog/artifact-import-dialog.component';
 
@@ -392,6 +393,7 @@ export class LifecycleProjectDetail {
   protected onImportConfirm(selection: {
     ursReqsToImport: ExportUrsRequirement[];
     fsCsReqsToImport: ExportFsCsRequirement[];
+    riskItemsToImport: ExportRiskAnalysisItem[];
   }): void {
     const p = this.project();
     if (!p) return;
@@ -403,6 +405,7 @@ export class LifecycleProjectDetail {
         this.importData()!,
         selection.ursReqsToImport,
         selection.fsCsReqsToImport,
+        selection.riskItemsToImport,
       )
       .then(() => {
         this.loading.set(false);

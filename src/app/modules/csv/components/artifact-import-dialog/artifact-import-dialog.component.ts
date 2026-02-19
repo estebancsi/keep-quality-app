@@ -17,6 +17,7 @@ import {
   ExportData,
   ExportUrsRequirement,
   ExportFsCsRequirement,
+  ExportRiskAnalysisItem,
 } from '../../services/artifact-import-export.service';
 
 @Component({
@@ -89,6 +90,7 @@ export class ArtifactImportDialogComponent {
   confirm = output<{
     ursReqsToImport: ExportUrsRequirement[];
     fsCsReqsToImport: ExportFsCsRequirement[];
+    riskItemsToImport: ExportRiskAnalysisItem[];
   }>();
 
   selectedNodes = signal<TreeNode[]>([]);
@@ -141,6 +143,7 @@ export class ArtifactImportDialogComponent {
   confirmImport(): void {
     const ursReqsToImport: ExportUrsRequirement[] = [];
     const fsCsReqsToImport: ExportFsCsRequirement[] = [];
+    const riskItemsToImport: ExportRiskAnalysisItem[] = [];
 
     const selected = this.selectedNodes();
     if (!selected) return;
@@ -151,6 +154,8 @@ export class ArtifactImportDialogComponent {
           ursReqsToImport.push(node.data.req);
         } else if (node.data.type === 'FS_CS') {
           fsCsReqsToImport.push(node.data.req);
+        } else if (node.data.type === 'RISK') {
+          riskItemsToImport.push(node.data.req);
         }
       }
     });
@@ -158,6 +163,7 @@ export class ArtifactImportDialogComponent {
     this.confirm.emit({
       ursReqsToImport,
       fsCsReqsToImport,
+      riskItemsToImport,
     });
     this.close();
   }
@@ -209,6 +215,23 @@ export class ArtifactImportDialogComponent {
         expanded: true,
         children: fsCsRootChildren,
         key: 'root_fscs',
+        selectable: true,
+      });
+    }
+
+    if (data.riskAnalysis?.items?.length) {
+      const riskChildren: TreeNode[] = data.riskAnalysis.items.map((item, idx) => ({
+        label: `[${item.code}] ${item.failureMode.substring(0, 50)}...`,
+        data: { type: 'RISK', req: item },
+        key: `risk_${idx}`,
+        leaf: true,
+      }));
+
+      rootNodes.push({
+        label: 'Risk Analysis (FMEA)',
+        expanded: true,
+        children: riskChildren,
+        key: 'root_risk',
         selectable: true,
       });
     }

@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
-import { Observable, map, tap, filter } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { AppConfigService } from '@/config/app-config.service';
 
 export interface Organization {
@@ -40,9 +40,15 @@ export class OrganizationService {
 
   readonly activeOrganizationId = computed(() => {
     const data = this.userData();
-    const orgId = data?.userData?.['urn:zitadel:iam:org:id'];
+    const orgIdFromToken = data?.userData?.['urn:zitadel:iam:org:id'];
 
-    if (orgId) return orgId;
+    if (orgIdFromToken) {
+      localStorage.setItem('activeOrgId', orgIdFromToken);
+      return orgIdFromToken;
+    }
+
+    const orgIdFromStorage = localStorage.getItem('activeOrgId');
+    if (orgIdFromStorage) return orgIdFromStorage;
 
     const orgs = this.organizations();
     return orgs.length > 0 ? orgs[0].id : undefined;
@@ -59,7 +65,7 @@ export class OrganizationService {
       );
   }
 
-  register(payload: RegistrationPayload): Observable<any> {
+  register(payload: RegistrationPayload): Observable<unknown> {
     return this.http.post(`${this.appConfigService.apiUrl()}/api/v1/registrations`, payload);
   }
 
@@ -72,6 +78,7 @@ export class OrganizationService {
       this.appConfigService.oidc().scope,
       `urn:zitadel:iam:org:id:${orgId}`,
     ].join(' ');
+    localStorage.setItem('activeOrgId', orgId);
     this.oidcSecurityService.authorize(undefined, {
       customParams: {
         scope: scope,
