@@ -33,7 +33,7 @@ export interface FsCsRequirement {
   fsCsArtifactId: string;
   reqType: FsCsRequirementType;
   code: number;
-  category: string | null;
+  groupName: string | null;
   position: number;
   description: string;
   traceUrsIds: string[];
@@ -50,7 +50,7 @@ export interface FsCsRequirementDto {
   fs_cs_artifact_id: string;
   req_type: string;
   code: number;
-  category: string | null;
+  group_name: string | null;
   position: number;
   description: string;
   trace_urs_ids: string[] | null;

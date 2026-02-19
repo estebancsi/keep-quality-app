@@ -102,17 +102,14 @@ export class ArtifactImportDialogComponent {
 
   constructor() {
     // Effect to auto-select all nodes when the 'nodes' computed signal changes
-    effect(
-      () => {
-        const currentNodes = this.nodes();
-        if (currentNodes.length > 0) {
-          this.selectedNodes.set(this.getAllNodes(currentNodes));
-        } else {
-          this.selectedNodes.set([]);
-        }
-      },
-      { allowSignalWrites: true },
-    );
+    effect(() => {
+      const currentNodes = this.nodes();
+      if (currentNodes.length > 0) {
+        this.selectedNodes.set(this.getAllNodes(currentNodes));
+      } else {
+        this.selectedNodes.set([]);
+      }
+    });
   }
 
   close(): void {
@@ -192,7 +189,7 @@ export class ArtifactImportDialogComponent {
       types.forEach((type) => {
         const typeReqs = data.fsCs!.requirements.filter((r) => r.reqType === type);
         const children: TreeNode[] = typeReqs.map((req, idx) => ({
-          label: `[${req.code}] ${req.category ? req.category + ' - ' : ''}${req.description.substring(0, 50)}...`,
+          label: `[${req.code}] ${req.groupName ? req.groupName + ' - ' : ''}${req.description.substring(0, 50)}...`,
           data: { type: 'FS_CS', req },
           key: `fscs_${type}_${idx}`,
           leaf: true,

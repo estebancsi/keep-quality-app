@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { forkJoin, map, Observable, switchMap, lastValueFrom, of } from 'rxjs';
+import { forkJoin, map, Observable, switchMap, lastValueFrom } from 'rxjs';
 import { UrsService } from './urs.service';
 import { FsCsService } from './fs-cs.service';
 import { UrsCategory } from '../urs.interface';
@@ -34,7 +34,7 @@ export interface ExportUrsRequirement {
 export interface ExportFsCsRequirement {
   reqType: FsCsRequirementType;
   code: number;
-  category: string | null; // e.g., 'Hardware', 'Software' sub-category
+  groupName: string | null; // e.g., 'Hardware', 'Software' sub-category
   position: number;
   description: string;
   traceUrsTempIds: string[]; // references ExportUrsRequirement.tempId
@@ -120,7 +120,7 @@ export class ArtifactImportExportService {
       return {
         reqType: req.reqType,
         code: req.code,
-        category: req.category,
+        groupName: req.groupName, // mapped from category
         position: req.position,
         description: req.description,
         traceUrsTempIds,
@@ -246,7 +246,7 @@ export class ArtifactImportExportService {
         return {
           reqType: req.reqType,
           description: req.description,
-          category: req.category, // e.g. Hardware
+          groupName: req.groupName,
           traceUrsIds: validTraceIds,
           // Strip code? yes.
         };

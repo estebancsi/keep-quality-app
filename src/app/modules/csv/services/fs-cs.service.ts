@@ -151,7 +151,7 @@ export class FsCsService {
         req_type: reqType,
         position: currentPos++,
         description: req.description || '',
-        category: req.category || null,
+        group_name: req.groupName || null,
         trace_urs_ids: req.traceUrsIds || [],
       }));
 
@@ -206,7 +206,7 @@ export class FsCsService {
         req_type: req.reqType,
         position: currentPos++,
         description: req.description || '',
-        category: req.category || null,
+        group_name: req.groupName || null,
         trace_urs_ids: req.traceUrsIds || [],
       }));
 
@@ -234,7 +234,7 @@ export class FsCsService {
   updateRequirement(id: string, changes: Partial<FsCsRequirement>): Observable<FsCsRequirement> {
     const payload: Record<string, unknown> = {};
     if (changes.description !== undefined) payload['description'] = changes.description;
-    if (changes.category !== undefined) payload['category'] = changes.category;
+    if (changes.groupName !== undefined) payload['group_name'] = changes.groupName;
     if (changes.traceUrsIds !== undefined) payload['trace_urs_ids'] = changes.traceUrsIds;
     if (changes.position !== undefined) payload['position'] = changes.position;
 
@@ -330,7 +330,7 @@ export class FsCsService {
       fsCsArtifactId: dto.fs_cs_artifact_id,
       reqType: dto.req_type as FsCsRequirementType,
       code: dto.code,
-      category: dto.category,
+      groupName: dto.group_name,
       position: dto.position,
       description: dto.description,
       traceUrsIds: dto.trace_urs_ids ?? [],

@@ -9,6 +9,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { EditorModule } from 'primeng/editor';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { InputTextModule } from 'primeng/inputtext';
+import { AutoCompleteModule } from 'primeng/autocomplete';
 import { FsCsService } from '../../services/fs-cs.service';
 import { FsCsRequirement, FsCsRequirementType } from '../../fs-cs.interface';
 import { UrsService } from '../../services/urs.service';
@@ -26,6 +27,7 @@ import { UrsRequirement } from '../../urs.interface';
     EditorModule,
     MultiSelectModule,
     InputTextModule,
+    AutoCompleteModule,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,18 +54,42 @@ import { UrsRequirement } from '../../urs.interface';
         [loading]="loading()"
         dataKey="id"
         styleClass="p-datatable-sm"
+        rowGroupMode="subheader"
+        groupRowsBy="groupName"
+        sortField="position"
+        sortMode="single"
       >
         <ng-template #header>
           <tr>
             <th style="width: 3rem" aria-label="Drag handle"></th>
             <th style="width: 6rem">Code</th>
-            <th style="width: 10rem">Category</th>
+            <th style="width: 10rem">Group</th>
             <th>Description & Traceability</th>
             <th style="width: 6rem">Actions</th>
           </tr>
         </ng-template>
 
-        <ng-template #body let-req let-index="rowIndex">
+        <ng-template #groupheader let-req let-expanded="expanded">
+          <tr pRowGroupHeader>
+            <td colspan="5">
+              <button
+                type="button"
+                pButton
+                pRipple
+                [pRowToggler]="req"
+                text
+                rounded
+                plain
+                class="mr-2"
+                [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+              >
+                {{ req.groupName || 'Uncategorized' }}
+              </button>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template #expandedrow let-req let-index="rowIndex">
           <tr [pReorderableRow]="index">
             <td class="align-top">
               <span class="pi pi-bars cursor-move mt-2" pReorderableRowHandle></span>
@@ -74,14 +100,17 @@ import { UrsRequirement } from '../../urs.interface';
 
             <td class="align-top pt-2">
               @if (editingId() === req.id) {
-                <input
-                  pInputText
-                  [(ngModel)]="editCategory"
-                  class="w-full text-sm"
-                  placeholder="Category"
+                <p-autoComplete
+                  [(ngModel)]="editGroupName"
+                  [suggestions]="groupSuggestions()"
+                  (completeMethod)="searchGroups($event)"
+                  [dropdown]="true"
+                  placeholder="Group Name"
+                  appendTo="body"
+                  [style]="{ width: '100%' }"
                 />
               } @else {
-                <span class="text-sm">{{ req.category || '-' }}</span>
+                <span class="text-sm">{{ req.groupName || '-' }}</span>
               }
             </td>
 
@@ -172,15 +201,6 @@ import { UrsRequirement } from '../../urs.interface';
             <td class="align-top pt-2">
               <div class="flex gap-1 justify-end">
                 <p-button
-                  icon="pi pi-pencil"
-                  [rounded]="true"
-                  [text]="true"
-                  severity="info"
-                  size="small"
-                  (click)="startEdit(req)"
-                  pTooltip="Edit"
-                />
-                <p-button
                   icon="pi pi-trash"
                   [rounded]="true"
                   [text]="true"
@@ -227,8 +247,9 @@ export class FsCsRequirementsTable {
 
   // Edit State
   protected editDescription = '';
-  protected editCategory = '';
+  protected editGroupName = '';
   protected editTraceUrsIds: string[] = [];
+  protected groupSuggestions = signal<string[]>([]);
 
   private artifactId = '';
 
@@ -303,7 +324,7 @@ export class FsCsRequirementsTable {
   protected startEdit(req: FsCsRequirement): void {
     this.editingId.set(req.id);
     this.editDescription = req.description;
-    this.editCategory = req.category || '';
+    this.editGroupName = req.groupName || '';
     this.editTraceUrsIds = [...req.traceUrsIds];
   }
 
@@ -317,7 +338,7 @@ export class FsCsRequirementsTable {
     this.fsCsService
       .updateRequirement(req.id, {
         description: this.editDescription,
-        category: this.editCategory,
+        groupName: this.editGroupName,
         traceUrsIds: this.editTraceUrsIds,
       })
       .subscribe({
@@ -333,7 +354,7 @@ export class FsCsRequirementsTable {
 
   private resetEditState() {
     this.editDescription = '';
-    this.editCategory = '';
+    this.editGroupName = '';
     this.editTraceUrsIds = [];
   }
 
@@ -394,6 +415,18 @@ export class FsCsRequirementsTable {
 
   protected ursOptions(): { label: string; value: string }[] {
     return this.ursOptionsSignal();
+  }
+
+  protected searchGroups(event: { query: string }): void {
+    const query = event.query.toLowerCase();
+    const existingGroups = Array.from(
+      new Set(
+        this.requirements()
+          .map((r) => r.groupName)
+          .filter((g): g is string => !!g),
+      ),
+    );
+    this.groupSuggestions.set(existingGroups.filter((g) => g.toLowerCase().includes(query)));
   }
 
   private truncate(str: string, length: number): string {

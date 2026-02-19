@@ -521,7 +521,7 @@ export class UrsRequirementsTable {
                   traceUrsIds?: string[];
                 }) => ({
                   description: req.description,
-                  category: req.category,
+                  groupName: req.category,
                   reqType: req.reqType,
                   traceUrsIds: req.traceUrsIds,
                 }),
