@@ -514,7 +514,6 @@ export class UrsRequirementsTable {
   protected onSpecGenerationSuccess(response: string): void {
     try {
       const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
-      console.log('cleanedResponse', cleanedResponse);
       const generatedReqs = JSON.parse(cleanedResponse);
 
       if (!Array.isArray(generatedReqs)) {
@@ -534,12 +533,12 @@ export class UrsRequirementsTable {
               generatedReqs.map(
                 (req: {
                   description: string;
-                  category?: string;
+                  groupName?: string;
                   reqType: FsCsRequirementType;
                   traceUrsIds?: string[];
                 }) => ({
                   description: req.description,
-                  groupName: req.category,
+                  groupName: req.groupName,
                   reqType: req.reqType,
                   traceUrsIds: req.traceUrsIds,
                 }),

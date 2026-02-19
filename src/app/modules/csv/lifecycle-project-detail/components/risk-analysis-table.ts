@@ -28,6 +28,18 @@ import { UrsRequirement } from '../../urs.interface';
 import { FsCsRequirement, FsCsRequirementType } from '../../fs-cs.interface';
 import { switchMap } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
+
+interface GeneratedRiskItem {
+  sourceCode: string;
+  failureMode: string;
+  cause: string;
+  effect: string;
+  severity: number;
+  probability: number;
+  detectability: number;
+  mitigation: string;
+}
 
 @Component({
   selector: 'app-risk-analysis-table',
@@ -44,6 +56,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     InputTextModule,
     RadioButtonModule,
     TagModule,
+    AiActionButtonComponent,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,6 +66,24 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
       <div class="flex items-center justify-between">
         <h4 class="text-base font-semibold m-0">Risk Analysis (FMEA)</h4>
         <div class="flex gap-2">
+          <app-ai-action-button
+            [action]="'csv.risk-analysis:generate'"
+            label="Generate Risks"
+            icon="pi pi-sparkles"
+            size="small"
+            severity="help"
+            [outlined]="true"
+            [context]="batchContext()"
+            (actionSuccess)="onRiskGenerationSuccess($event)"
+            [tooltip]="
+              'Generate risks for next ' +
+              nextBatch().length +
+              ' items (' +
+              untracedItems().length +
+              ' remaining)'
+            "
+            [disabled]="nextBatch().length === 0"
+          />
           <p-button
             label="Add Risk Item"
             icon="pi pi-plus"
@@ -506,6 +537,49 @@ export class RiskAnalysisTableComponent {
   protected readonly editProbability = signal(1);
   protected readonly editDetectability = signal(1);
 
+  // AI Generation State
+  protected readonly batchSize = signal(5);
+
+  protected readonly untracedItems = computed(() => {
+    const existingRisks = this.items();
+    const cat = this.systemCategory();
+
+    if (cat === 4 || cat === 5) {
+      // Trace against FS/CS
+      const tracedIds = new Set(existingRisks.flatMap((r) => r.traceFsCsIds || []));
+      return this.fsCsRequirements().filter((req) => !tracedIds.has(req.id));
+    } else if (cat === 3) {
+      // Trace against URS
+      const tracedIds = new Set(existingRisks.flatMap((r) => r.traceUrsIds || []));
+      return this.ursRequirements().filter((req) => !tracedIds.has(req.id));
+    }
+    return [];
+  });
+
+  protected readonly nextBatch = computed(() => {
+    return this.untracedItems().slice(0, this.batchSize());
+  });
+
+  protected readonly batchContext = computed(() => {
+    const batch = this.nextBatch();
+    const cat = this.systemCategory();
+    let sourceType = 'Unknown';
+    if (cat === 3) sourceType = 'User Requirement (URS)';
+    else if (cat === 4 || cat === 5) sourceType = 'Functional/Design Specification (FS/CS/DS)';
+
+    return {
+      sourceType,
+      items: batch.map((item) => ({
+        id: item.id,
+        code:
+          cat === 3
+            ? `URS-${item.code}`
+            : `${this.getPrefix((item as FsCsRequirement).reqType)}-${item.code}`,
+        description: item.description,
+      })),
+    };
+  });
+
   // Scale Options
   protected readonly severityOptions = [
     { label: 'Low', value: 1 },
@@ -789,6 +863,102 @@ export class RiskAnalysisTableComponent {
   protected getDetectabilityLabel(val: number): string {
     const opt = this.detectabilityOptions.find((o) => o.value === val);
     return opt ? opt.label : val.toString();
+  }
+
+  protected onRiskGenerationSuccess(response: string): void {
+    try {
+      const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      const generatedRisks = JSON.parse(cleanedResponse);
+
+      if (!Array.isArray(generatedRisks)) {
+        throw new Error('AI response is not an array');
+      }
+
+      this.loading.set(true);
+
+      // Process sequentially to maintain order and simplify error handling
+      this.processGeneratedRisks(generatedRisks, 0);
+    } catch (e) {
+      console.error('Failed to parse AI response for Risk generation', e);
+      this.loading.set(false);
+    }
+  }
+
+  private processGeneratedRisks(risks: GeneratedRiskItem[], index: number): void {
+    if (index >= risks.length) {
+      this.loading.set(false);
+      return;
+    }
+
+    const riskData = risks[index];
+    const nextPosition = this.items().length;
+
+    // 1. Create blank item
+    this.riskService.createItem(this.artifactId, nextPosition).subscribe({
+      next: (newItem) => {
+        // 2. Map AI data to update payload
+        // We need to find the ID of the source item to link it
+        const sourceCode = riskData.sourceCode;
+        let traceUrsIds: string[] = [];
+        let traceFsCsIds: string[] = [];
+
+        if (sourceCode) {
+          if (sourceCode.startsWith('URS-')) {
+            const codeNum = parseInt(sourceCode.replace('URS-', ''), 10);
+            const found = this.ursRequirements().find((r) => r.code === codeNum);
+            if (found) traceUrsIds = [found.id];
+          } else {
+            // Try matching FS/CS/DS prefixes
+            // FS-123, CS-123, DS-123
+            const parts = sourceCode.split('-');
+            if (parts.length >= 2) {
+              const codeNum = parseInt(parts[1], 10);
+              const typePrefix = parts[0]; // FS, CS, DS
+              const found = this.fsCsRequirements().find((r) => {
+                return r.code === codeNum && this.getPrefix(r.reqType) === typePrefix;
+              });
+              if (found) traceFsCsIds = [found.id];
+            }
+          }
+        }
+
+        const updates: Partial<RiskAnalysisItem> = {
+          failureMode: riskData.failureMode,
+          cause: riskData.cause,
+          effect: riskData.effect,
+          severity: riskData.severity || 1,
+          probability: riskData.probability || 1,
+          detectability: riskData.detectability || 1, // AI should return 1=Good/High if prompt says so, check scale
+          mitigation: riskData.mitigation,
+          traceUrsIds: traceUrsIds,
+          traceFsCsIds: traceFsCsIds,
+          // Calculate RPN/Class based on these new values
+          riskClass: this.calculateRiskClass(riskData.severity || 1, riskData.probability || 1),
+          rpn: this.calculateRiskPriority(
+            this.calculateRiskClass(riskData.severity || 1, riskData.probability || 1),
+            riskData.detectability || 1,
+          ),
+        };
+
+        // 3. Update item
+        this.riskService.updateItem(newItem.id, updates).subscribe({
+          next: (updatedItem) => {
+            this.items.update((prev) => [...prev, updatedItem]);
+            // Next
+            this.processGeneratedRisks(risks, index + 1);
+          },
+          error: (err) => {
+            console.error('Failed to update generated risk item', err);
+            // Continue mostly? Or stop? Let's continue to try others
+            this.processGeneratedRisks(risks, index + 1);
+          },
+        });
+      },
+      error: (err) => {
+        console.error('Failed to create risk item', err);
+        this.loading.set(false);
+      },
+    });
   }
 
   protected getPrefix(type: FsCsRequirementType): string {
