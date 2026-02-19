@@ -13,6 +13,7 @@ import {
 } from '../lifecycle-project.interface';
 import { UrsRequirementsTable } from './components/urs-requirements-table';
 import { FsCsRequirementsTable } from './components/fs-cs-requirements-table';
+import { RiskAnalysisTableComponent } from './components/risk-analysis-table';
 import { FsCsArtifact, FsCsRequirementType } from '../fs-cs.interface';
 import { FsCsService } from '../services/fs-cs.service';
 import { CustomFieldsRendererComponent } from '@/shared/custom-fields/renderer/custom-fields-renderer.component';
@@ -38,6 +39,7 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
     ProgressSpinnerModule,
     UrsRequirementsTable,
     FsCsRequirementsTable,
+    RiskAnalysisTableComponent,
     CustomFieldsRendererComponent,
     ArtifactImportDialogComponent,
   ],
@@ -115,6 +117,12 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
                 <i class="pi pi-file-edit mr-2"></i>
                 User Requirements (URS)
               </p-tab>
+              @if (showRiskTab()) {
+                <p-tab value="risk-analysis">
+                  <i class="pi pi-shield mr-2"></i>
+                  Risk Analysis (FMEA)
+                </p-tab>
+              }
               @if (showFsCsTab()) {
                 <p-tab value="fs-cs">
                   <i class="pi pi-list mr-2"></i>
@@ -147,6 +155,15 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
 
                 <app-urs-requirements-table [lifecycleProjectId]="p.id" [system]="p.system" />
               </p-tabpanel>
+
+              @if (showRiskTab()) {
+                <p-tabpanel value="risk-analysis">
+                  <app-risk-analysis-table
+                    [lifecycleProjectId]="p.id"
+                    [systemCategory]="p.system?.categoryCode"
+                  />
+                </p-tabpanel>
+              }
 
               @if (showFsCsTab()) {
                 <p-tabpanel value="fs-cs">
@@ -226,6 +243,7 @@ export class LifecycleProjectDetail {
 
   /** Only show FS/CS tab for GAMP Cat 4 & 5 (Validation/Revalidation) */
   protected readonly showFsCsTab = signal(false);
+  protected readonly showRiskTab = signal(false);
   protected readonly fsCsReqTypes = signal<FsCsRequirementType[]>([]);
 
   /** Custom fields schema (null = not found or not loaded yet) */
@@ -270,6 +288,7 @@ export class LifecycleProjectDetail {
         this.project.set(p);
         const isValidation = p.type === 'validation' || p.type === 'revalidation';
         this.showUrsTab.set(isValidation);
+        this.showRiskTab.set(isValidation);
 
         const categoryCode = p.system?.categoryCode;
         if (isValidation && (categoryCode === 4 || categoryCode === 5)) {
