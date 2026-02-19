@@ -76,7 +76,7 @@ import { switchMap } from 'rxjs';
             <th style="width: 3rem" aria-label="Drag handle"></th>
             <th style="width: 5rem">Code</th>
             <th style="width: 6rem">Traceability</th>
-            <th>Failure Mode / Cause / Effect</th>
+            <th style="min-width: 20rem">Failure Mode / Cause / Effect</th>
             <th style="width: 8rem" pTooltip="Severity (1=Low, 3=High)">Severity</th>
             <th style="width: 8rem" pTooltip="Probability (1=Low, 3=High)">Probability</th>
             <th style="width: 8rem" pTooltip="Detectability (1=High/Good, 3=Low/Bad)">
@@ -116,10 +116,13 @@ import { switchMap } from 'rxjs';
                       appendTo="body"
                       display="chip"
                     >
-                      <ng-template let-item pTemplate="item">
+                      <ng-template let-item #item>
                         <div class="flex flex-col">
                           <span class="font-semibold">{{ item.code }}</span>
-                          <span class="text-sm text-surface-500">{{ item.description }}</span>
+                          <span
+                            class="text-sm text-surface-500"
+                            [innerHTML]="item.description"
+                          ></span>
                         </div>
                       </ng-template>
                     </p-multiSelect>
@@ -138,10 +141,13 @@ import { switchMap } from 'rxjs';
                       appendTo="body"
                       display="chip"
                     >
-                      <ng-template let-item pTemplate="item">
+                      <ng-template let-item #item>
                         <div class="flex flex-col">
                           <span class="font-semibold">{{ item.code }}</span>
-                          <span class="text-sm text-surface-500">{{ item.description }}</span>
+                          <span
+                            class="text-sm text-surface-500"
+                            [innerHTML]="item.description"
+                          ></span>
                         </div>
                       </ng-template>
                     </p-multiSelect>
@@ -470,16 +476,16 @@ export class RiskAnalysisTableComponent {
   protected readonly ursOptions = computed(() =>
     this.ursRequirements().map((r) => ({
       code: `URS-${r.code}`,
-      description: this.truncate(r.description, 40),
-      label: `URS-${r.code} ${this.truncate(r.description, 40)}`,
+      description: this.truncate(r.description, 80),
+      label: `URS-${r.code} ${this.truncate(r.description, 80)}`,
       value: r.id,
     })),
   );
   protected readonly fsCsOptions = computed(() =>
     this.fsCsRequirements().map((r) => ({
       code: `${this.getPrefix(r.reqType)}-${r.code}`,
-      description: this.truncate(r.description, 40),
-      label: `${this.getPrefix(r.reqType)}-${r.code} ${this.truncate(r.description, 40)}`,
+      description: this.truncate(r.description, 80),
+      label: `${this.getPrefix(r.reqType)}-${r.code} ${this.truncate(r.description, 80)}`,
       value: r.id,
     })),
   );
