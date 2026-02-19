@@ -424,6 +424,24 @@ export class UrsRequirementsTable {
     const [moved] = reordered.splice(dragIndex, 1);
     reordered.splice(dropIndex, 0, moved);
 
+    // Determine new group based on neighbors
+    let newGroup = moved.groupName;
+    if (dropIndex > 0) {
+      newGroup = reordered[dropIndex - 1].groupName;
+    } else if (reordered.length > 1) {
+      // If moved to the top, adopt the group of the item below (now at index 1)
+      newGroup = reordered[1].groupName;
+    }
+
+    const groupChanged = moved.groupName !== newGroup;
+    if (groupChanged) {
+      moved.groupName = newGroup;
+
+      this.ursService.updateRequirement(moved.id, { groupName: newGroup }).subscribe({
+        error: () => this.loadRequirements(),
+      });
+    }
+
     const updates = reordered.map((req, index) => ({
       id: req.id,
       position: index,
