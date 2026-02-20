@@ -99,17 +99,23 @@ export class SystemPromptsService {
   }
 
   hydratePrompt(template: string, context: Record<string, unknown>): string {
-    let result = template;
-    for (const key in context) {
-      if (Object.prototype.hasOwnProperty.call(context, key)) {
-        const value = context[key];
-        // Handle various value types for robust hydration
-        const replacement =
-          typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-        result = result.replace(new RegExp(`{{${key}}}`, 'g'), replacement);
+    return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, path) => {
+      const keys = path.split('.');
+      let value: unknown = context;
+
+      for (const key of keys) {
+        if (value && typeof value === 'object' && key in value) {
+          value = (value as Record<string, unknown>)[key];
+        } else {
+          // If path is not found, leave the placeholder intact or return empty string.
+          // Leaving it intact is safer for debugging prompt templates.
+          return match;
+        }
       }
-    }
-    return result;
+
+      // Handle various value types for robust hydration
+      return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+    });
   }
 
   private toDomain(dto: SystemPromptDto): SystemPrompt {

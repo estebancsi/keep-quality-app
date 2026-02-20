@@ -478,7 +478,7 @@ export class FsCsRequirementsTable {
           this.ursRequirements.set(ursReqs);
           this.ursOptionsSignal.set(
             ursReqs.map((r) => ({
-              label: `URS-${r.code} ${this.truncate(r.description, 30)}`,
+              label: `URS-${r.code} ${this.truncate(r.description, 120)}`,
               value: r.id,
             })),
           );
