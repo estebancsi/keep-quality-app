@@ -7,6 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { SplitterModule } from 'primeng/splitter';
 import { CodeEditor } from '../components/code-editor/code-editor';
@@ -20,6 +21,7 @@ import { DrawerModule } from 'primeng/drawer';
 import { TemplateVariables } from '../components/template-variables/template-variables';
 import { PageConfig, TemplateData, PdfTemplate } from '../interfaces/pdf-templates.types';
 import { PdfTemplatesService } from '../services/pdf-templates.service';
+import { switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-template-editor',
@@ -154,10 +156,12 @@ export class TemplateEditor {
   readonly currentTemplateName = signal<string | null>(null);
   readonly variablesVisible = signal(false);
 
-  readonly templateVariables = computed(() => {
-    const templateName = this.currentTemplateName();
-    return this.pdfService.getTemplateVariables(templateName ?? 'blank-template');
-  });
+  readonly templateVariables = toSignal(
+    toObservable(this.currentTemplateName).pipe(
+      switchMap((name) => this.pdfService.getTemplateVariables(name ?? 'blank-template')),
+    ),
+    { initialValue: null },
+  );
 
   constructor() {
     this.route.queryParams.subscribe((params: Record<string, string | undefined>) => {

@@ -4,6 +4,9 @@ import { catchError, defer, map, Observable, switchMap, throwError } from 'rxjs'
 import { PdfTemplate, PdfTemplateDto } from '../interfaces/pdf-templates.types';
 import { MessageService } from 'primeng/api';
 import { TEMPLATE_SCHEMAS } from '../data/template-schemas';
+import { CustomFieldsService } from '@/shared/custom-fields/service/custom-fields.service';
+import { CustomFieldsSchema } from '@/shared/custom-fields/types/custom-fields.types';
+import { of } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -11,6 +14,7 @@ import { TEMPLATE_SCHEMAS } from '../data/template-schemas';
 export class PdfTemplatesService {
   private supabase = inject(SupabaseService).client;
   private messageService = inject(MessageService);
+  private customFieldsService = inject(CustomFieldsService);
 
   getTemplateByName(name: string): Observable<PdfTemplate | null> {
     return defer(async () =>
@@ -24,8 +28,27 @@ export class PdfTemplatesService {
     );
   }
 
-  getTemplateVariables(templateName: string): any {
-    return TEMPLATE_SCHEMAS[templateName] || null;
+  getTemplateVariables(templateName: string): Observable<unknown> {
+    const staticSchema = TEMPLATE_SCHEMAS[templateName] || null;
+
+    return this.customFieldsService.getSchemaByName(templateName).pipe(
+      map((customFieldsSchema: CustomFieldsSchema) => {
+        const customFields: Record<string, string> = {};
+
+        customFieldsSchema.fields.forEach((field) => {
+          customFields[field.name] = `[${field.type}]`;
+        });
+
+        return {
+          ...staticSchema,
+          customFields: customFields,
+        };
+      }),
+      catchError(() => {
+        // If no custom fields schema is found, just return the static schema
+        return of(staticSchema);
+      }),
+    );
   }
 
   saveTemplate(template: PdfTemplate): Observable<PdfTemplate> {
@@ -54,6 +77,7 @@ export class PdfTemplatesService {
           );
         }
       }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       switchMap((obs: Observable<any>) => obs),
       map(({ data, error }) => {
         if (error) throw error;
@@ -92,8 +116,8 @@ export class PdfTemplatesService {
     };
   }
 
-  private handleError(error: any, summary: string) {
-    const errorMessage = error.message || 'An unexpected error occurred.';
+  private handleError(error: unknown, summary: string) {
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
     console.error(`[${summary}]`, errorMessage);
     this.messageService.add({
       severity: 'error',

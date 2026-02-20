@@ -11,7 +11,7 @@ import { TooltipModule } from 'primeng/tooltip';
   template: `
     <div class="p-3">
       <p class="text-sm text-surface-500 mb-3">
-        Click on a variable to copy its Scriban syntax to your clipboard.
+        Click on a variable to copy its template syntax to your clipboard.
       </p>
 
       @if (treeNodes().length > 0) {
@@ -63,7 +63,7 @@ export class TemplateVariables {
         this.messageService.add({
           severity: 'info',
           summary: 'Copied',
-          detail: 'Scriban syntax copied to clipboard',
+          detail: 'Template syntax copied to clipboard',
           life: 2000,
         });
       });
@@ -90,19 +90,19 @@ export class TemplateVariables {
         currentPath = key;
       }
 
-      let scribanSyntax = '';
+      let templateSyntax = '';
       if (isArray) {
         const nextLoopVar = key.endsWith('s') ? key.slice(0, -1) : `${key}_item`;
-        scribanSyntax = `{{ for ${nextLoopVar} in ${currentPath} }}\n  ... \n{{ end }}`;
+        templateSyntax = `{{ for ${nextLoopVar} in ${currentPath} }}\n  ... \n{{ end }}`;
       } else {
-        scribanSyntax = `{{ ${currentPath} }}`;
+        templateSyntax = `{{ ${currentPath} }}`;
       }
 
       const node: TreeNode = {
         label: key,
         data: {
           path: currentPath,
-          syntax: scribanSyntax,
+          syntax: templateSyntax,
           type: isArray ? 'array' : typeof value,
           value: typeof value !== 'object' ? String(value) : null,
         },
