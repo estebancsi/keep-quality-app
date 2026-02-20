@@ -16,6 +16,8 @@ import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { ActivatedRoute } from '@angular/router';
 import { MessageService } from 'primeng/api';
+import { DrawerModule } from 'primeng/drawer';
+import { TemplateVariables } from '../components/template-variables/template-variables';
 import { PageConfig, TemplateData, PdfTemplate } from '../interfaces/pdf-templates.types';
 import { PdfTemplatesService } from '../services/pdf-templates.service';
 
@@ -27,7 +29,9 @@ import { PdfTemplatesService } from '../services/pdf-templates.service';
     CodeEditor,
     PageOptions,
     TemplatePreview,
+    TemplateVariables,
     ButtonModule,
+    DrawerModule,
     TooltipModule,
   ],
   template: `
@@ -35,6 +39,15 @@ import { PdfTemplatesService } from '../services/pdf-templates.service';
       <div class="toolbar flex items-center gap-2 p-3 border-b border-surface">
         <h2 class="text-xl font-semibold m-0">PDF Template Editor</h2>
         <div class="flex-1"></div>
+        <p-button
+          icon="pi pi-code"
+          label="Variables"
+          severity="secondary"
+          [outlined]="true"
+          pTooltip="View Template Variables"
+          tooltipPosition="bottom"
+          (onClick)="variablesVisible.set(true)"
+        />
         <p-button
           icon="pi pi-download"
           severity="secondary"
@@ -95,6 +108,15 @@ import { PdfTemplatesService } from '../services/pdf-templates.service';
           />
         </ng-template>
       </p-splitter>
+
+      <p-drawer
+        [(visible)]="variablesVisible"
+        position="right"
+        header="Template Variables"
+        styleClass="w-[30%] min-w-[350px]"
+      >
+        <app-template-variables [schema]="templateVariables()" />
+      </p-drawer>
     </div>
   `,
   styles: `
@@ -130,9 +152,15 @@ export class TemplateEditor {
 
   readonly fileInputRef = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   readonly currentTemplateName = signal<string | null>(null);
+  readonly variablesVisible = signal(false);
+
+  readonly templateVariables = computed(() => {
+    const templateName = this.currentTemplateName();
+    return this.pdfService.getTemplateVariables(templateName ?? 'blank-template');
+  });
 
   constructor() {
-    this.route.queryParams.subscribe((params) => {
+    this.route.queryParams.subscribe((params: Record<string, string | undefined>) => {
       const templateName = params['templateName'];
       if (templateName) {
         this.currentTemplateName.set(templateName);

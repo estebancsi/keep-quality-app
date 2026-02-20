@@ -3,6 +3,7 @@ import { SupabaseService } from '@/core/services/supabase.service';
 import { catchError, defer, map, Observable, switchMap, throwError } from 'rxjs';
 import { PdfTemplate, PdfTemplateDto } from '../interfaces/pdf-templates.types';
 import { MessageService } from 'primeng/api';
+import { TEMPLATE_SCHEMAS } from '../data/template-schemas';
 
 @Injectable({
   providedIn: 'root',
@@ -21,6 +22,10 @@ export class PdfTemplatesService {
       }),
       catchError((error) => this.handleError(error, 'Get Template by Name')),
     );
+  }
+
+  getTemplateVariables(templateName: string): any {
+    return TEMPLATE_SCHEMAS[templateName] || null;
   }
 
   saveTemplate(template: PdfTemplate): Observable<PdfTemplate> {
