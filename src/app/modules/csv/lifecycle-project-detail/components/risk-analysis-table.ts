@@ -75,14 +75,8 @@ interface GeneratedRiskItem {
             [outlined]="true"
             [context]="batchContext()"
             (actionSuccess)="onRiskGenerationSuccess($event)"
-            [tooltip]="
-              'Generate risks for next ' +
-              nextBatch().length +
-              ' items (' +
-              untracedItems().length +
-              ' remaining)'
-            "
-            [disabled]="nextBatch().length === 0"
+            [tooltip]="'Generate risks for ' + untracedItems().length + ' items'"
+            [disabled]="untracedItems().length === 0"
           />
           <p-button
             label="Add Risk Item"
@@ -494,6 +488,12 @@ export class RiskAnalysisTableComponent {
 
   readonly lifecycleProjectId = input.required<string>();
   readonly systemCategory = input<number>();
+  readonly system = input<{
+    name: string;
+    version: string | null;
+    description: string | null;
+    categoryCode?: number;
+  }>();
 
   // State
   protected readonly items = signal<RiskAnalysisItem[]>([]);
@@ -538,8 +538,6 @@ export class RiskAnalysisTableComponent {
   protected readonly editDetectability = signal(1);
 
   // AI Generation State
-  protected readonly batchSize = signal(5);
-
   protected readonly untracedItems = computed(() => {
     const existingRisks = this.items();
     const cat = this.systemCategory();
@@ -556,18 +554,15 @@ export class RiskAnalysisTableComponent {
     return [];
   });
 
-  protected readonly nextBatch = computed(() => {
-    return this.untracedItems().slice(0, this.batchSize());
-  });
-
   protected readonly batchContext = computed(() => {
-    const batch = this.nextBatch();
+    const batch = this.untracedItems();
     const cat = this.systemCategory();
     let sourceType = 'Unknown';
     if (cat === 3) sourceType = 'User Requirement (URS)';
     else if (cat === 4 || cat === 5) sourceType = 'Functional/Design Specification (FS/CS/DS)';
 
     return {
+      system: this.system(),
       sourceType,
       items: batch.map((item) => ({
         id: item.id,

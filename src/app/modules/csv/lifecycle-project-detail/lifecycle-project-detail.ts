@@ -162,6 +162,7 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
                   <app-risk-analysis-table
                     [lifecycleProjectId]="p.id"
                     [systemCategory]="p.system?.categoryCode"
+                    [system]="p.system"
                   />
                 </p-tabpanel>
               }
