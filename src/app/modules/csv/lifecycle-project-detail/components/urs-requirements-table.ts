@@ -38,9 +38,18 @@ import { switchMap } from 'rxjs';
   template: `
     <div class="flex flex-col gap-3">
       <!-- Toolbar -->
-      <div class="flex items-center justify-between">
+      <div class="relative flex items-center justify-between h-10">
         <h3 class="text-lg font-semibold m-0">User Requirements</h3>
-        <div class="flex gap-2">
+
+        <!-- Default Actions -->
+        <div
+          class="flex gap-2 absolute right-0 transition-all duration-300 ease-in-out"
+          [ngClass]="
+            selectedItems().length > 0
+              ? 'opacity-0 pointer-events-none translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
           <app-ai-action-button
             action="csv.spec:generate-from-urs"
             label="Generate Specs"
@@ -60,11 +69,50 @@ import { switchMap } from 'rxjs';
             [loading]="adding()"
           />
         </div>
+
+        <!-- Bulk Actions Toolbar -->
+        <div
+          class="flex items-center gap-2 bg-primary-50 dark:bg-primary-900/20 px-3 py-1.5 rounded-lg border border-primary-200 dark:border-primary-800 shadow-sm absolute right-0 transition-all duration-300 ease-in-out z-10"
+          [ngClass]="
+            selectedItems().length === 0
+              ? 'opacity-0 pointer-events-none -translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
+          <span class="text-sm font-semibold text-primary-700 dark:text-primary-300 mr-2">
+            {{ selectedItems().length }} selected
+          </span>
+          <p-button
+            icon="pi pi-tags"
+            label="Group"
+            size="small"
+            [outlined]="true"
+            (click)="openBulkGroupDialog()"
+          />
+          <p-button
+            icon="pi pi-trash"
+            label="Delete"
+            severity="danger"
+            size="small"
+            [outlined]="true"
+            (click)="confirmBulkDelete()"
+          />
+          <p-button
+            icon="pi pi-times"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            (click)="selectedItems.set([])"
+            pTooltip="Clear selection"
+          />
+        </div>
       </div>
 
       <!-- Table -->
       <p-table
         [value]="requirements()"
+        [selection]="selectedItems()"
+        (selectionChange)="selectedItems.set($event)"
         (onRowReorder)="onRowReorder($event)"
         [loading]="loading()"
         dataKey="id"
@@ -77,6 +125,7 @@ import { switchMap } from 'rxjs';
         <ng-template #header>
           <tr>
             <th style="width: 3rem" aria-label="Drag handle"></th>
+            <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
             <th style="width: 5rem">Code</th>
             <th style="width: 10rem">Category</th>
             <th>Description</th>
@@ -87,7 +136,7 @@ import { switchMap } from 'rxjs';
 
         <ng-template #groupheader let-req let-expanded="expanded">
           <tr pRowGroupHeader>
-            <td colspan="6">
+            <td colspan="7">
               <button
                 type="button"
                 pButton
@@ -106,12 +155,19 @@ import { switchMap } from 'rxjs';
         </ng-template>
 
         <ng-template #expandedrow let-req let-index="rowIndex">
-          <tr [pReorderableRow]="index">
-            <td>
-              <span class="pi pi-bars cursor-move" pReorderableRowHandle></span>
+          <tr
+            [pReorderableRow]="index"
+            [class.bg-primary-50]="selectedItems().includes(req)"
+            class="dark:bg-transparent"
+          >
+            <td class="align-top">
+              <span class="pi pi-bars cursor-move mt-2" pReorderableRowHandle></span>
             </td>
-            <td class="font-mono font-semibold">URS-{{ req.code }}</td>
-            <td>
+            <td class="align-top">
+              <p-tableCheckbox [value]="req" />
+            </td>
+            <td class="font-mono font-semibold align-top pt-3">URS-{{ req.code }}</td>
+            <td class="align-top pt-2">
               @if (editingId() === req.id) {
                 <p-select
                   [options]="categoryOptions"
@@ -123,7 +179,7 @@ import { switchMap } from 'rxjs';
                 <span [class.text-surface-400]="!req.category">{{ req.category }}</span>
               }
             </td>
-            <td>
+            <td class="align-top">
               @if (editingId() === req.id) {
                 <p-editor [(ngModel)]="editDescription" [style]="{ height: '150px' }">
                   <ng-template #header>
@@ -182,7 +238,7 @@ import { switchMap } from 'rxjs';
                 </div>
               }
             </td>
-            <td>
+            <td class="align-top pt-2">
               @if (editingId() === req.id) {
                 <p-autoComplete
                   [(ngModel)]="editGroupName"
@@ -196,7 +252,7 @@ import { switchMap } from 'rxjs';
                 {{ req.groupName }}
               }
             </td>
-            <td>
+            <td class="align-top pt-2">
               <div class="flex gap-1">
                 <app-ai-action-button
                   action="csv.spec:assist"
@@ -226,7 +282,7 @@ import { switchMap } from 'rxjs';
 
         <ng-template #emptymessage>
           <tr>
-            <td [colSpan]="4" class="text-center py-8">
+            <td [colSpan]="7" class="text-center py-8">
               <div class="flex flex-col items-center gap-2">
                 <i class="pi pi-file-edit text-4xl text-surface-400"></i>
                 <span class="text-surface-500">No requirements yet</span>
@@ -292,6 +348,50 @@ import { switchMap } from 'rxjs';
       </ng-template>
     </p-dialog>
 
+    <!-- Bulk Group Dialog -->
+    <p-dialog
+      header="Bulk Assign Group"
+      [(visible)]="bulkGroupDialogVisible"
+      [modal]="true"
+      [style]="{ width: '400px' }"
+    >
+      <div class="flex flex-col gap-4 py-4">
+        <p class="m-0 text-surface-600 dark:text-surface-400">
+          Assigning a group to {{ selectedItems().length }} selected requirement(s).
+        </p>
+        <div class="flex flex-col gap-2">
+          <label for="bulk-group-name" class="font-semibold text-sm">Group Name</label>
+          <p-autoComplete
+            inputId="bulk-group-name"
+            [(ngModel)]="bulkGroupName"
+            [suggestions]="groupSuggestions()"
+            (completeMethod)="searchGroups($event)"
+            [dropdown]="true"
+            placeholder="Enter or select a group"
+            appendTo="body"
+            [style]="{ width: '100%' }"
+          />
+        </div>
+      </div>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            (click)="bulkGroupDialogVisible = false"
+          />
+          <p-button
+            label="Apply"
+            icon="pi pi-check"
+            (click)="applyBulkGroup()"
+            [loading]="saving()"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
+
     <p-confirmDialog />
   `,
 })
@@ -317,6 +417,11 @@ export class UrsRequirementsTable {
 
   protected readonly categoryOptions: UrsCategory[] = ['Functional', 'Configuration', 'Design'];
   protected groupSuggestions = signal<string[]>([]);
+
+  // Bulk State
+  protected readonly selectedItems = signal<UrsRequirement[]>([]);
+  protected bulkGroupDialogVisible = false;
+  protected bulkGroupName = '';
 
   // AI Review State
   protected reviewDialogVisible = false;
@@ -468,10 +573,60 @@ export class UrsRequirementsTable {
         this.ursService.deleteRequirement(req.id).subscribe({
           next: () => {
             this.requirements.update((prev) => prev.filter((r) => r.id !== req.id));
+            this.selectedItems.update((prev) => prev.filter((r) => r.id !== req.id));
           },
         });
       },
     });
+  }
+
+  // Bulk Actions
+  protected confirmBulkDelete(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    this.confirmationService.confirm({
+      message: `Are you sure you want to delete ${ids.length} selected requirement(s)?`,
+      header: 'Confirm Bulk Deletion',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.ursService.deleteRequirements(ids).subscribe({
+          next: () => {
+            this.requirements.update((prev) => prev.filter((r) => !ids.includes(r.id)));
+            this.selectedItems.set([]);
+          },
+        });
+      },
+    });
+  }
+
+  protected openBulkGroupDialog(): void {
+    if (this.selectedItems().length === 0) return;
+    this.bulkGroupName = '';
+    this.bulkGroupDialogVisible = true;
+  }
+
+  protected applyBulkGroup(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    this.saving.set(true);
+    this.ursService
+      .bulkUpdateRequirements(ids, { groupName: this.bulkGroupName || null })
+      .subscribe({
+        next: () => {
+          this.requirements.update((prev) =>
+            prev.map((r) =>
+              ids.includes(r.id) ? { ...r, groupName: this.bulkGroupName || null } : r,
+            ),
+          );
+          this.saving.set(false);
+          this.bulkGroupDialogVisible = false;
+          this.selectedItems.set([]); // Clear selection after applying
+        },
+        error: () => this.saving.set(false),
+      });
   }
 
   // AI Actions

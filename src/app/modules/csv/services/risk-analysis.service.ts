@@ -183,6 +183,48 @@ export class RiskAnalysisService {
     );
   }
 
+  deleteItems(ids: string[]): Observable<void> {
+    return defer(async () =>
+      this.supabase.from('csv_risk_analysis_items').delete().in('id', ids),
+    ).pipe(
+      map(({ error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${ids.length} items deleted`,
+        });
+      }),
+      catchError((error) => this.handleError(error, 'Delete Risk Analysis Items (Bulk)')),
+    );
+  }
+
+  bulkUpdateItems(ids: string[], changes: Partial<RiskAnalysisItem>): Observable<void> {
+    const payload: Record<string, unknown> = {};
+    if (changes.severity !== undefined) payload['severity'] = changes.severity;
+    if (changes.probability !== undefined) payload['probability'] = changes.probability;
+    if (changes.detectability !== undefined) payload['detectability'] = changes.detectability;
+    if (changes.rpn !== undefined) payload['rpn'] = changes.rpn;
+    if (changes.riskClass !== undefined) payload['risk_class'] = changes.riskClass;
+    if (changes.traceUrsIds !== undefined) payload['trace_urs_ids'] = changes.traceUrsIds;
+    if (changes.traceFsCsIds !== undefined) payload['trace_fs_cs_ids'] = changes.traceFsCsIds;
+    // We omit textual fields from bulk updates for safety as requested
+
+    return defer(async () =>
+      this.supabase.from('csv_risk_analysis_items').update(payload).in('id', ids),
+    ).pipe(
+      map(({ error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${ids.length} items updated`,
+        });
+      }),
+      catchError((error) => this.handleError(error, 'Update Risk Analysis Items (Bulk)')),
+    );
+  }
+
   updatePositions(updates: { id: string; position: number }[]): Observable<void> {
     return defer(async () => {
       for (const { id, position } of updates) {

@@ -227,6 +227,44 @@ export class UrsService {
     );
   }
 
+  deleteRequirements(ids: string[]): Observable<void> {
+    return defer(async () =>
+      this.supabase.from('csv_urs_requirements').delete().in('id', ids),
+    ).pipe(
+      map(({ error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${ids.length} requirements deleted`,
+        });
+      }),
+      tap(() => this.requirementsChanged.next()),
+      catchError((error) => this.handleError(error, 'Delete URS Requirements (Bulk)')),
+    );
+  }
+
+  bulkUpdateRequirements(ids: string[], changes: Partial<UrsRequirement>): Observable<void> {
+    const payload: Record<string, unknown> = {};
+    if (changes.category !== undefined) payload['category'] = changes.category;
+    if (changes.groupName !== undefined) payload['group_name'] = changes.groupName;
+
+    return defer(async () =>
+      this.supabase.from('csv_urs_requirements').update(payload).in('id', ids),
+    ).pipe(
+      map(({ error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${ids.length} requirements updated`,
+        });
+      }),
+      tap(() => this.requirementsChanged.next()),
+      catchError((error) => this.handleError(error, 'Update URS Requirements (Bulk)')),
+    );
+  }
+
   /**
    * Bulk update positions after drag-and-drop reorder.
    * Uses individual updates wrapped in sequential calls.

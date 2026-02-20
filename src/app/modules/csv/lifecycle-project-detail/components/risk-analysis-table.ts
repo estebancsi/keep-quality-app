@@ -20,13 +20,14 @@ import { MultiSelectModule } from 'primeng/multiselect';
 import { InputTextModule } from 'primeng/inputtext';
 import { RadioButtonModule } from 'primeng/radiobutton';
 import { TagModule } from 'primeng/tag';
+import { DialogModule } from 'primeng/dialog';
 import { RiskAnalysisService } from '../../services/risk-analysis.service';
 import { RiskAnalysisItem } from '../../risk-analysis.interface';
 import { UrsService } from '../../services/urs.service';
 import { FsCsService } from '../../services/fs-cs.service';
 import { UrsRequirement } from '../../urs.interface';
 import { FsCsRequirement, FsCsRequirementType } from '../../fs-cs.interface';
-import { switchMap } from 'rxjs';
+import { forkJoin, switchMap } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
 
@@ -57,6 +58,7 @@ interface GeneratedRiskItem {
     RadioButtonModule,
     TagModule,
     AiActionButtonComponent,
+    DialogModule,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,7 +67,15 @@ interface GeneratedRiskItem {
       <!-- Toolbar -->
       <div class="flex items-center justify-between">
         <h4 class="text-base font-semibold m-0">Risk Analysis (FMEA)</h4>
-        <div class="flex gap-2">
+        <!-- Default Actions -->
+        <div
+          class="flex gap-2 absolute right-0 transition-all duration-300 ease-in-out"
+          [ngClass]="
+            selectedItems().length > 0
+              ? 'opacity-0 pointer-events-none translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
           <app-ai-action-button
             [action]="'csv.risk-analysis:generate'"
             label="Generate Risks"
@@ -86,11 +96,57 @@ interface GeneratedRiskItem {
             [loading]="adding()"
           />
         </div>
+
+        <!-- Bulk Actions Toolbar -->
+        <div
+          class="flex items-center gap-2 bg-primary-50 dark:bg-primary-900/20 px-3 py-1.5 rounded-lg border border-primary-200 dark:border-primary-800 shadow-sm absolute right-0 transition-all duration-300 ease-in-out z-10"
+          [ngClass]="
+            selectedItems().length === 0
+              ? 'opacity-0 pointer-events-none -translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
+          <span class="text-sm font-semibold text-primary-700 dark:text-primary-300 mr-2">
+            {{ selectedItems().length }} selected
+          </span>
+          <p-button
+            icon="pi pi-link"
+            label="Trace"
+            size="small"
+            [outlined]="true"
+            (click)="openBulkTraceDialog()"
+          />
+          <p-button
+            icon="pi pi-sliders-h"
+            label="Properties"
+            size="small"
+            [outlined]="true"
+            (click)="openBulkPropertiesDialog()"
+          />
+          <p-button
+            icon="pi pi-trash"
+            label="Delete"
+            severity="danger"
+            size="small"
+            [outlined]="true"
+            (click)="confirmBulkDelete()"
+          />
+          <p-button
+            icon="pi pi-times"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            (click)="selectedItems.set([])"
+            pTooltip="Clear selection"
+          />
+        </div>
       </div>
 
       <!-- Table -->
       <p-table
         [value]="items()"
+        [selection]="selectedItems()"
+        (selectionChange)="selectedItems.set($event)"
         (onRowReorder)="onRowReorder($event)"
         [loading]="loading()"
         dataKey="id"
@@ -101,6 +157,7 @@ interface GeneratedRiskItem {
         <ng-template #header>
           <tr>
             <th style="width: 3rem" aria-label="Drag handle"></th>
+            <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
             <th style="width: 5rem">Code</th>
             <th style="width: 6rem">Traceability</th>
             <th style="min-width: 20rem">Failure Mode / Cause / Effect</th>
@@ -117,10 +174,18 @@ interface GeneratedRiskItem {
         </ng-template>
 
         <ng-template #body let-item let-index="rowIndex">
-          <tr [pReorderableRow]="index">
+          <tr
+            [pReorderableRow]="index"
+            [class.bg-primary-50]="selectedItems().includes(item)"
+            class="dark:bg-transparent"
+          >
             <!-- Drag Handle -->
             <td class="align-top">
               <span class="pi pi-bars cursor-move mt-2" pReorderableRowHandle></span>
+            </td>
+
+            <td class="align-top">
+              <p-tableCheckbox [value]="item" />
             </td>
 
             <!-- Code -->
@@ -452,7 +517,7 @@ interface GeneratedRiskItem {
 
         <ng-template #emptymessage>
           <tr>
-            <td [colSpan]="10" class="text-center py-8">
+            <td [colSpan]="12" class="text-center py-8">
               <span class="text-surface-500">No risk items defined.</span>
               <p-button label="Add Item" [link]="true" (click)="addItem()" />
             </td>
@@ -460,6 +525,168 @@ interface GeneratedRiskItem {
         </ng-template>
       </p-table>
     </div>
+
+    <!-- Bulk Traceability Dialog -->
+    <p-dialog
+      header="Bulk Trace"
+      [(visible)]="bulkTraceDialogVisible"
+      [modal]="true"
+      [style]="{ width: '400px' }"
+    >
+      <div class="flex flex-col gap-4 py-4">
+        <p class="m-0 text-surface-600 dark:text-surface-400">
+          Tracing {{ selectedItems().length }} selected requirement(s).
+        </p>
+        @if (systemCategory() === 4 || systemCategory() === 5) {
+          <div class="flex flex-col gap-2">
+            <label for="bulk-trace-fs-cs" class="font-semibold text-sm">Select FS/CS/DS</label>
+            <p-multiSelect
+              inputId="bulk-trace-fs-cs"
+              [options]="fsCsOptions()"
+              [(ngModel)]="bulkTraceFsCsIds"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select FS/CS/DS"
+              [style]="{ width: '100%' }"
+              appendTo="body"
+            />
+          </div>
+        }
+        <div class="flex flex-col gap-2">
+          <label for="bulk-trace-urs" class="font-semibold text-sm">Select URS</label>
+          <p-multiSelect
+            inputId="bulk-trace-urs"
+            [options]="ursOptions()"
+            [(ngModel)]="bulkTraceUrsIds"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select URS"
+            [style]="{ width: '100%' }"
+            appendTo="body"
+          />
+        </div>
+        <small class="text-surface-500"
+          >This will OVERWRITE any existing traceability on the selected items.</small
+        >
+      </div>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            (click)="bulkTraceDialogVisible = false"
+          />
+          <p-button
+            label="Apply"
+            icon="pi pi-check"
+            (click)="applyBulkTrace()"
+            [loading]="saving()"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Bulk Properties Dialog -->
+    <p-dialog
+      header="Bulk Edit Properties"
+      [(visible)]="bulkPropertiesDialogVisible"
+      [modal]="true"
+      [style]="{ width: '400px' }"
+    >
+      <div class="flex flex-col gap-5 py-4">
+        <p class="m-0 text-surface-600 dark:text-surface-400">
+          Editing properties for {{ selectedItems().length }} selected item(s).
+        </p>
+
+        <div class="flex flex-col gap-2">
+          <span class="font-semibold text-sm">Severity</span>
+          <div class="flex flex-wrap gap-4">
+            @for (opt of severityOptions; track opt.value) {
+              <div class="flex items-center">
+                <p-radioButton
+                  name="bulkSeverity"
+                  [value]="opt.value"
+                  [(ngModel)]="bulkSeverity"
+                  [inputId]="'bulk-sev-' + opt.value"
+                />
+                <label [for]="'bulk-sev-' + opt.value" class="ml-2 cursor-pointer">{{
+                  opt.label
+                }}</label>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="font-semibold text-sm">Probability</span>
+          <div class="flex flex-wrap gap-4">
+            @for (opt of probabilityOptions; track opt.value) {
+              <div class="flex items-center">
+                <p-radioButton
+                  name="bulkProbability"
+                  [value]="opt.value"
+                  [(ngModel)]="bulkProbability"
+                  [inputId]="'bulk-prob-' + opt.value"
+                />
+                <label [for]="'bulk-prob-' + opt.value" class="ml-2 cursor-pointer">{{
+                  opt.label
+                }}</label>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="font-semibold text-sm">Detectability</span>
+          <div class="flex flex-wrap gap-4">
+            @for (opt of detectabilityOptions; track opt.value) {
+              <div class="flex items-center">
+                <p-radioButton
+                  name="bulkDetectability"
+                  [value]="opt.value"
+                  [(ngModel)]="bulkDetectability"
+                  [inputId]="'bulk-det-' + opt.value"
+                />
+                <label [for]="'bulk-det-' + opt.value" class="ml-2 cursor-pointer">{{
+                  opt.label
+                }}</label>
+              </div>
+            }
+          </div>
+        </div>
+
+        <small class="text-surface-500"
+          >Leaving a selection empty will preserve its current value across all selected items.
+          Updating these values will recalculate Risk Class and Priority.</small
+        >
+      </div>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Clear Info"
+            icon="pi pi-eraser"
+            [text]="true"
+            (click)="bulkSeverity = null; bulkProbability = null; bulkDetectability = null"
+          />
+          <div class="flex-grow"></div>
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            (click)="bulkPropertiesDialogVisible = false"
+          />
+          <p-button
+            label="Apply"
+            icon="pi pi-check"
+            (click)="applyBulkProperties()"
+            [loading]="saving()"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
 
     <p-confirmDialog />
   `,
@@ -531,6 +758,16 @@ export class RiskAnalysisTableComponent {
   protected editMitigation = '';
   protected editTraceUrsIds: string[] = [];
   protected editTraceFsCsIds: string[] = [];
+
+  // Bulk State
+  protected readonly selectedItems = signal<RiskAnalysisItem[]>([]);
+  protected bulkTraceDialogVisible = false;
+  protected bulkTraceUrsIds: string[] = [];
+  protected bulkTraceFsCsIds: string[] = [];
+  protected bulkPropertiesDialogVisible = false;
+  protected bulkSeverity: number | null = null;
+  protected bulkProbability: number | null = null;
+  protected bulkDetectability: number | null = null;
 
   // Reactive State for Analysis
   protected readonly editSeverity = signal(1);
@@ -983,5 +1220,132 @@ export class RiskAnalysisTableComponent {
     if (!str) return '';
     const text = str.replace(/<[^>]*>/g, '');
     return text.length > length ? text.substring(0, length) + '...' : text;
+  }
+
+  // Bulk Actions
+  protected confirmBulkDelete(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    this.confirmationService.confirm({
+      message: `Are you sure you want to delete ${ids.length} selected risk item(s)?`,
+      header: 'Confirm Bulk Deletion',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.riskService.deleteItems(ids).subscribe({
+          next: () => {
+            this.items.update((prev) => prev.filter((r) => !ids.includes(r.id)));
+            this.selectedItems.set([]);
+          },
+        });
+      },
+    });
+  }
+
+  protected openBulkTraceDialog(): void {
+    if (this.selectedItems().length === 0) return;
+    this.bulkTraceUrsIds = [];
+    this.bulkTraceFsCsIds = [];
+    this.bulkTraceDialogVisible = true;
+  }
+
+  protected applyBulkTrace(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    this.saving.set(true);
+    const traceChanges: Partial<RiskAnalysisItem> = {
+      traceUrsIds: this.bulkTraceUrsIds,
+    };
+    if (this.systemCategory() === 4 || this.systemCategory() === 5) {
+      traceChanges.traceFsCsIds = this.bulkTraceFsCsIds;
+    }
+
+    this.riskService.bulkUpdateItems(ids, traceChanges).subscribe({
+      next: () => {
+        this.items.update((prev) =>
+          prev.map((r) => (ids.includes(r.id) ? { ...r, ...traceChanges } : r)),
+        );
+        this.saving.set(false);
+        this.bulkTraceDialogVisible = false;
+        this.selectedItems.set([]);
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  protected openBulkPropertiesDialog(): void {
+    if (this.selectedItems().length === 0) return;
+    this.bulkSeverity = null;
+    this.bulkProbability = null;
+    this.bulkDetectability = null;
+    this.bulkPropertiesDialogVisible = true;
+  }
+
+  protected applyBulkProperties(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    if (
+      this.bulkSeverity === null &&
+      this.bulkProbability === null &&
+      this.bulkDetectability === null
+    ) {
+      this.bulkPropertiesDialogVisible = false;
+      return;
+    }
+
+    this.saving.set(true);
+
+    // We group items by their resulting properties so we can use bulkUpdateItems efficiently
+    const updatesByGroup = new Map<string, { ids: string[]; changes: Partial<RiskAnalysisItem> }>();
+    const currentItems = this.items().filter((i) => ids.includes(i.id));
+
+    currentItems.forEach((item) => {
+      const updatedS = this.bulkSeverity !== null ? this.bulkSeverity : item.severity;
+      const updatedP = this.bulkProbability !== null ? this.bulkProbability : item.probability;
+      const updatedD =
+        this.bulkDetectability !== null ? this.bulkDetectability : item.detectability;
+
+      const riskClass = this.calculateRiskClass(updatedS, updatedP);
+      const rpn = this.calculateRiskPriority(riskClass, updatedD);
+
+      const changes: Partial<RiskAnalysisItem> = {};
+      if (this.bulkSeverity !== null) changes.severity = updatedS;
+      if (this.bulkProbability !== null) changes.probability = updatedP;
+      if (this.bulkDetectability !== null) changes.detectability = updatedD;
+      changes.riskClass = riskClass;
+      changes.rpn = rpn;
+
+      const groupKey = `${changes.severity || ''}-${changes.probability || ''}-${changes.detectability || ''}-${riskClass}-${rpn}`;
+
+      if (!updatesByGroup.has(groupKey)) {
+        updatesByGroup.set(groupKey, { ids: [], changes });
+      }
+      updatesByGroup.get(groupKey)!.ids.push(item.id);
+    });
+
+    const observables = Array.from(updatesByGroup.values()).map((group) =>
+      this.riskService.bulkUpdateItems(group.ids, group.changes),
+    );
+
+    forkJoin(observables).subscribe({
+      next: () => {
+        this.items.update((prev) =>
+          prev.map((r) => {
+            if (ids.includes(r.id)) {
+              const group = Array.from(updatesByGroup.values()).find((g) => g.ids.includes(r.id));
+              return { ...r, ...group!.changes };
+            }
+            return r;
+          }),
+        );
+        this.saving.set(false);
+        this.bulkPropertiesDialogVisible = false;
+        this.selectedItems.set([]);
+      },
+      error: () => this.saving.set(false),
+    });
   }
 }

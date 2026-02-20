@@ -286,6 +286,44 @@ export class FsCsService {
     );
   }
 
+  deleteRequirements(ids: string[]): Observable<void> {
+    return defer(async () =>
+      this.supabase.from('csv_fs_cs_requirements').delete().in('id', ids),
+    ).pipe(
+      map(({ error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${ids.length} requirements deleted`,
+        });
+      }),
+      tap(() => this.requirementsChanged.next()),
+      catchError((error) => this.handleError(error, 'Delete FS/CS Requirements (Bulk)')),
+    );
+  }
+
+  bulkUpdateRequirements(ids: string[], changes: Partial<FsCsRequirement>): Observable<void> {
+    const payload: Record<string, unknown> = {};
+    if (changes.groupName !== undefined) payload['group_name'] = changes.groupName;
+    if (changes.traceUrsIds !== undefined) payload['trace_urs_ids'] = changes.traceUrsIds;
+
+    return defer(async () =>
+      this.supabase.from('csv_fs_cs_requirements').update(payload).in('id', ids),
+    ).pipe(
+      map(({ error }) => {
+        if (error) throw error;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `${ids.length} requirements updated`,
+        });
+      }),
+      tap(() => this.requirementsChanged.next()),
+      catchError((error) => this.handleError(error, 'Update FS/CS Requirements (Bulk)')),
+    );
+  }
+
   /**
    * Bulk update positions.
    */

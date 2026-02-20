@@ -18,6 +18,7 @@ import { EditorModule } from 'primeng/editor';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { InputTextModule } from 'primeng/inputtext';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { DialogModule } from 'primeng/dialog';
 import { FsCsService } from '../../services/fs-cs.service';
 import { FsCsRequirement, FsCsRequirementType } from '../../fs-cs.interface';
 import { UrsService } from '../../services/urs.service';
@@ -37,15 +38,25 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     MultiSelectModule,
     InputTextModule,
     AutoCompleteModule,
+    DialogModule,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col gap-3">
       <!-- Toolbar -->
-      <div class="flex items-center justify-between">
+      <div class="relative flex items-center justify-between h-10">
         <h4 class="text-base font-semibold m-0">{{ title() }}</h4>
-        <div class="flex gap-2">
+
+        <!-- Default Actions -->
+        <div
+          class="flex gap-2 absolute right-0 transition-all duration-300 ease-in-out"
+          [ngClass]="
+            selectedItems().length > 0
+              ? 'opacity-0 pointer-events-none translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
           <p-button
             label="Add Requirement"
             icon="pi pi-plus"
@@ -54,11 +65,57 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             [loading]="adding()"
           />
         </div>
+
+        <!-- Bulk Actions Toolbar -->
+        <div
+          class="flex items-center gap-2 bg-primary-50 dark:bg-primary-900/20 px-3 py-1.5 rounded-lg border border-primary-200 dark:border-primary-800 shadow-sm absolute right-0 transition-all duration-300 ease-in-out z-10"
+          [ngClass]="
+            selectedItems().length === 0
+              ? 'opacity-0 pointer-events-none -translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
+          <span class="text-sm font-semibold text-primary-700 dark:text-primary-300 mr-2">
+            {{ selectedItems().length }} selected
+          </span>
+          <p-button
+            icon="pi pi-link"
+            label="Trace"
+            size="small"
+            [outlined]="true"
+            (click)="openBulkTraceDialog()"
+          />
+          <p-button
+            icon="pi pi-tags"
+            label="Group"
+            size="small"
+            [outlined]="true"
+            (click)="openBulkGroupDialog()"
+          />
+          <p-button
+            icon="pi pi-trash"
+            label="Delete"
+            severity="danger"
+            size="small"
+            [outlined]="true"
+            (click)="confirmBulkDelete()"
+          />
+          <p-button
+            icon="pi pi-times"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            (click)="selectedItems.set([])"
+            pTooltip="Clear selection"
+          />
+        </div>
       </div>
 
       <!-- Table -->
       <p-table
         [value]="requirements()"
+        [selection]="selectedItems()"
+        (selectionChange)="selectedItems.set($event)"
         (onRowReorder)="onRowReorder($event)"
         [loading]="loading()"
         dataKey="id"
@@ -71,6 +128,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         <ng-template #header>
           <tr>
             <th style="width: 3rem" aria-label="Drag handle"></th>
+            <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
             <th style="width: 6rem">Code</th>
             <th style="width: 10rem">Group</th>
             <th>Description & Traceability</th>
@@ -80,7 +138,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
         <ng-template #groupheader let-req let-expanded="expanded">
           <tr pRowGroupHeader>
-            <td colspan="5">
+            <td colspan="6">
               <button
                 type="button"
                 pButton
@@ -99,9 +157,16 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         </ng-template>
 
         <ng-template #expandedrow let-req let-index="rowIndex">
-          <tr [pReorderableRow]="index">
+          <tr
+            [pReorderableRow]="index"
+            [class.bg-primary-50]="selectedItems().includes(req)"
+            class="dark:bg-transparent"
+          >
             <td class="align-top">
               <span class="pi pi-bars cursor-move mt-2" pReorderableRowHandle></span>
+            </td>
+            <td class="align-top">
+              <p-tableCheckbox [value]="req" />
             </td>
             <td class="align-top font-mono font-semibold pt-3">
               {{ getCodePrefix() }}-{{ req.code }}
@@ -225,7 +290,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
         <ng-template #emptymessage>
           <tr>
-            <td [colSpan]="5" class="text-center py-8">
+            <td [colSpan]="6" class="text-center py-8">
               <span class="text-surface-500">No requirements defined.</span>
               <p-button label="Add Item" [link]="true" (click)="addRequirement()" />
             </td>
@@ -233,6 +298,95 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         </ng-template>
       </p-table>
     </div>
+
+    <!-- Bulk Group Dialog -->
+    <p-dialog
+      header="Bulk Assign Group"
+      [(visible)]="bulkGroupDialogVisible"
+      [modal]="true"
+      [style]="{ width: '400px' }"
+    >
+      <div class="flex flex-col gap-4 py-4">
+        <p class="m-0 text-surface-600 dark:text-surface-400">
+          Assigning a group to {{ selectedItems().length }} selected requirement(s).
+        </p>
+        <div class="flex flex-col gap-2">
+          <label for="bulk-group-name" class="font-semibold text-sm">Group Name</label>
+          <p-autoComplete
+            inputId="bulk-group-name"
+            [(ngModel)]="bulkGroupName"
+            [suggestions]="groupSuggestions()"
+            (completeMethod)="searchGroups($event)"
+            [dropdown]="true"
+            placeholder="Enter or select a group"
+            appendTo="body"
+            [style]="{ width: '100%' }"
+          />
+        </div>
+      </div>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            (click)="bulkGroupDialogVisible = false"
+          />
+          <p-button
+            label="Apply"
+            icon="pi pi-check"
+            (click)="applyBulkGroup()"
+            [loading]="saving()"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Bulk Traceability Dialog -->
+    <p-dialog
+      header="Bulk Trace to URS"
+      [(visible)]="bulkTraceDialogVisible"
+      [modal]="true"
+      [style]="{ width: '400px' }"
+    >
+      <div class="flex flex-col gap-4 py-4">
+        <p class="m-0 text-surface-600 dark:text-surface-400">
+          Tracing {{ selectedItems().length }} selected requirement(s) to URS.
+        </p>
+        <div class="flex flex-col gap-2">
+          <label for="bulk-trace-urs" class="font-semibold text-sm">Select URS Requirements</label>
+          <p-multiSelect
+            inputId="bulk-trace-urs"
+            [options]="ursOptions()"
+            [(ngModel)]="bulkTraceUrsIds"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select URS Requirements"
+            [style]="{ width: '100%' }"
+            appendTo="body"
+          />
+          <small class="text-surface-500">This will replace any existing traceability.</small>
+        </div>
+      </div>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            (click)="bulkTraceDialogVisible = false"
+          />
+          <p-button
+            label="Apply"
+            icon="pi pi-check"
+            (click)="applyBulkTrace()"
+            [loading]="saving()"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
 
     <p-confirmDialog />
   `,
@@ -260,6 +414,13 @@ export class FsCsRequirementsTable {
   protected editGroupName = '';
   protected editTraceUrsIds: string[] = [];
   protected groupSuggestions = signal<string[]>([]);
+
+  // Bulk State
+  protected readonly selectedItems = signal<FsCsRequirement[]>([]);
+  protected bulkGroupDialogVisible = false;
+  protected bulkGroupName = '';
+  protected bulkTraceDialogVisible = false;
+  protected bulkTraceUrsIds: string[] = [];
 
   private artifactId = '';
 
@@ -484,5 +645,80 @@ export class FsCsRequirementsTable {
     // Strip HTML tags for label
     const text = str.replace(/<[^>]*>/g, '');
     return text.length > length ? text.substring(0, length) + '...' : text;
+  }
+
+  // Bulk Actions
+  protected confirmBulkDelete(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    this.confirmationService.confirm({
+      message: `Are you sure you want to delete ${ids.length} selected requirement(s)?`,
+      header: 'Confirm Bulk Deletion',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.fsCsService.deleteRequirements(ids).subscribe({
+          next: () => {
+            this.requirements.update((prev) => prev.filter((r) => !ids.includes(r.id)));
+            this.selectedItems.set([]);
+          },
+        });
+      },
+    });
+  }
+
+  protected openBulkGroupDialog(): void {
+    if (this.selectedItems().length === 0) return;
+    this.bulkGroupName = '';
+    this.bulkGroupDialogVisible = true;
+  }
+
+  protected applyBulkGroup(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    this.saving.set(true);
+    this.fsCsService
+      .bulkUpdateRequirements(ids, { groupName: this.bulkGroupName || null })
+      .subscribe({
+        next: () => {
+          this.requirements.update((prev) =>
+            prev.map((r) =>
+              ids.includes(r.id) ? { ...r, groupName: this.bulkGroupName || null } : r,
+            ),
+          );
+          this.saving.set(false);
+          this.bulkGroupDialogVisible = false;
+          this.selectedItems.set([]);
+        },
+        error: () => this.saving.set(false),
+      });
+  }
+
+  protected openBulkTraceDialog(): void {
+    if (this.selectedItems().length === 0) return;
+    this.bulkTraceUrsIds = [];
+    this.bulkTraceDialogVisible = true;
+  }
+
+  protected applyBulkTrace(): void {
+    const ids = this.selectedItems().map((r) => r.id);
+    if (!ids.length) return;
+
+    this.saving.set(true);
+    this.fsCsService.bulkUpdateRequirements(ids, { traceUrsIds: this.bulkTraceUrsIds }).subscribe({
+      next: () => {
+        this.requirements.update((prev) =>
+          prev.map((r) =>
+            ids.includes(r.id) ? { ...r, traceUrsIds: [...this.bulkTraceUrsIds] } : r,
+          ),
+        );
+        this.saving.set(false);
+        this.bulkTraceDialogVisible = false;
+        this.selectedItems.set([]);
+      },
+      error: () => this.saving.set(false),
+    });
   }
 }
