@@ -64,9 +64,15 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (group of groupedFields(); track group.group?.name ?? 'ungrouped') {
-      <fieldset class="border border-surface-200 dark:border-surface-700 rounded-lg p-4 mb-4">
+      <fieldset
+        class="border-surface-200 dark:border-surface-700 rounded-lg mb-4"
+        [ngClass]="{
+          border: !!group.group?.name,
+          'p-4': !!group.group?.name,
+        }"
+      >
         <legend class="text-sm font-semibold text-surface-600 dark:text-surface-300 px-2">
-          {{ group.group?.label ?? 'Additional Fields' }}
+          {{ group.group?.label }}
         </legend>
 
         @if (group.group?.description) {

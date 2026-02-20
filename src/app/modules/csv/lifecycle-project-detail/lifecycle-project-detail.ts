@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { firstValueFrom } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
@@ -29,6 +30,9 @@ import {
   ExportRiskAnalysisItem,
 } from '../services/artifact-import-export.service';
 import { ArtifactImportDialogComponent } from '../components/artifact-import-dialog/artifact-import-dialog.component';
+import { ReportsService, PDFOptions } from '@/shared/services/reports.service';
+import { PdfTemplatesService } from '@/modules/pdf-templates/services/pdf-templates.service';
+import { RiskAnalysisService } from '../services/risk-analysis.service';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -134,31 +138,68 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
             <p-tabpanels>
               <p-tabpanel value="0">
                 <!-- Custom fields section (hidden if no schema exists) -->
-                @if (customFieldsSchema(); as schema) {
-                  <div class="mb-4">
-                    <h3 class="text-lg font-semibold mb-3">Document Properties</h3>
+
+                <div class="mb-4">
+                  <div class="flex justify-between items-center mt-4">
+                    <h3 class="text-lg font-semibold">Document Properties</h3>
+                    <div class="flex justify-end gap-2">
+                      <p-button
+                        label="Edit PDF"
+                        icon="pi pi-pencil"
+                        [outlined]="true"
+                        size="small"
+                        (click)="editPdf('csv.urs_artifact')"
+                      />
+                      <p-button
+                        label="Generate PDF"
+                        icon="pi pi-file-pdf"
+                        [outlined]="true"
+                        size="small"
+                        [loading]="generatingPdf() === 'csv.urs_artifact'"
+                        (click)="generatePdf('csv.urs_artifact')"
+                      />
+                      @if (customFieldsSchema(); as schema) {
+                        <p-button
+                          label="Save Properties"
+                          icon="pi pi-save"
+                          [loading]="savingCustomFields()"
+                          (click)="saveCustomFields()"
+                          size="small"
+                        />
+                      }
+                    </div>
+                  </div>
+                  @if (customFieldsSchema(); as schema) {
                     <app-custom-fields-renderer
                       [schema]="schema"
                       [values]="customFieldValues()"
                       (valuesChange)="onCustomFieldsChanged($event)"
                     />
-                    <div class="flex justify-end mt-2">
-                      <p-button
-                        label="Save Properties"
-                        icon="pi pi-save"
-                        [loading]="savingCustomFields()"
-                        (click)="saveCustomFields()"
-                        size="small"
-                      />
-                    </div>
-                  </div>
-                }
+                  }
+                </div>
 
                 <app-urs-requirements-table [lifecycleProjectId]="p.id" [system]="p.system" />
               </p-tabpanel>
 
               @if (showRiskTab()) {
                 <p-tabpanel value="risk-analysis">
+                  <div class="flex justify-end mb-4 gap-2">
+                    <p-button
+                      label="Edit PDF"
+                      icon="pi pi-pencil"
+                      [outlined]="true"
+                      size="small"
+                      (click)="editPdf('csv.risk_analysis_artifact')"
+                    />
+                    <p-button
+                      label="Generate PDF"
+                      icon="pi pi-file-pdf"
+                      [outlined]="true"
+                      size="small"
+                      [loading]="generatingPdf() === 'csv.risk_analysis_artifact'"
+                      (click)="generatePdf('csv.risk_analysis_artifact')"
+                    />
+                  </div>
                   <app-risk-analysis-table
                     [lifecycleProjectId]="p.id"
                     [systemCategory]="p.system?.categoryCode"
@@ -172,39 +213,56 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
                   <div class="flex flex-col gap-8">
                     @for (type of fsCsReqTypes(); track type) {
                       <div>
-                        <!-- Section Header for clarity -->
-                        <!-- <h4 class="text-lg font-semibold mb-3">{{ type }} Specification</h4> -->
-                        <!-- (Title is in table, maybe we don't need extra header, or maybe we do for custom fields?) -->
-
                         <!-- Custom Fields for this Type -->
-                        @if (fsCsSchemas()[type]; as schema) {
-                          <div
-                            class="mb-4 p-4 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700"
-                          >
-                            <h4 class="text-base font-semibold mb-3">{{ type }} Properties</h4>
+                        <div
+                          class="mb-4 p-4 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700"
+                        >
+                          <div class="flex justify-between items-center">
+                            <h4 class="text-base font-semibold mb-3">
+                              {{ type }} Specification Properties
+                            </h4>
+                            <div class="flex justify-end mt-2 gap-2">
+                              <p-button
+                                label="Edit PDF"
+                                icon="pi pi-pencil"
+                                size="small"
+                                [outlined]="true"
+                                (click)="editPdf('csv.spec.' + type.toLowerCase())"
+                              />
+                              <p-button
+                                label="Generate PDF"
+                                icon="pi pi-file-pdf"
+                                size="small"
+                                [outlined]="true"
+                                [loading]="generatingPdf() === 'csv.spec.' + type.toLowerCase()"
+                                (click)="generatePdf('csv.spec.' + type.toLowerCase(), type)"
+                              />
+                              @if (fsCsSchemas()[type]; as schema) {
+                                <p-button
+                                  label="Save {{ type }} Properties"
+                                  icon="pi pi-save"
+                                  [loading]="savingFsCs()[type] || false"
+                                  (click)="saveFsCsFields(type)"
+                                  size="small"
+                                  [outlined]="true"
+                                />
+                              }
+                            </div>
+                          </div>
+                          @if (fsCsSchemas()[type]; as schema) {
                             <app-custom-fields-renderer
                               [schema]="schema"
                               [values]="fsCsValues()[type] || {}"
                               (valuesChange)="onFsCsValuesChanged(type, $event)"
                             />
-                            <div class="flex justify-end mt-2">
-                              <p-button
-                                label="Save {{ type }} Properties"
-                                icon="pi pi-save"
-                                [loading]="savingFsCs()[type] || false"
-                                (click)="saveFsCsFields(type)"
-                                size="small"
-                                [outlined]="true"
-                              />
-                            </div>
-                          </div>
-                        }
+                          }
 
-                        <app-fs-cs-requirements-table
-                          [lifecycleProjectId]="p.id"
-                          [reqType]="type"
-                          [title]="type + ' Specification'"
-                        />
+                          <app-fs-cs-requirements-table
+                            [lifecycleProjectId]="p.id"
+                            [reqType]="type"
+                            [title]="type + ' Specification'"
+                          />
+                        </div>
                       </div>
                     }
                   </div>
@@ -236,6 +294,9 @@ export class LifecycleProjectDetail {
   private readonly ursService = inject(UrsService);
   private readonly importExportService = inject(ArtifactImportExportService);
   private readonly fsCsService = inject(FsCsService);
+  private readonly riskService = inject(RiskAnalysisService);
+  private readonly reportsService = inject(ReportsService);
+  private readonly pdfTemplatesService = inject(PdfTemplatesService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
@@ -270,6 +331,10 @@ export class LifecycleProjectDetail {
   protected readonly fsCsValues = signal<Record<string, Record<string, unknown>>>({});
   protected readonly savingFsCs = signal<Record<string, boolean>>({});
   private fsCsArtifact: FsCsArtifact | null = null;
+  private riskAnalysisArtifactId: string | null = null;
+
+  // PDF Generation State
+  protected readonly generatingPdf = signal<string | null>(null);
 
   constructor() {
     effect(() => {
@@ -291,6 +356,10 @@ export class LifecycleProjectDetail {
         const isValidation = p.type === 'validation' || p.type === 'revalidation';
         this.showUrsTab.set(isValidation);
         this.showRiskTab.set(isValidation);
+
+        if (isValidation) {
+          this.loadRiskArtifact(p.id);
+        }
 
         const categoryCode = p.system?.categoryCode;
         if (isValidation && (categoryCode === 4 || categoryCode === 5)) {
@@ -332,6 +401,14 @@ export class LifecycleProjectDetail {
       next: (artifact) => {
         this.ursArtifact = artifact;
         this.customFieldValues.set(artifact.customFieldValues ?? {});
+      },
+    });
+  }
+
+  private loadRiskArtifact(projectId: string): void {
+    this.riskService.getOrCreateArtifact(projectId).subscribe({
+      next: (artifact) => {
+        this.riskAnalysisArtifactId = artifact.id;
       },
     });
   }
@@ -465,6 +542,87 @@ export class LifecycleProjectDetail {
         this.savingFsCs.update((prev) => ({ ...prev, [type]: false }));
       },
     });
+  }
+
+  protected editPdf(templateCode: string): void {
+    this.router.navigate(['/pdf-templates/editor'], {
+      queryParams: { templateName: templateCode },
+    });
+  }
+
+  protected async generatePdf(templateCode: string, fsCsType?: string): Promise<void> {
+    this.generatingPdf.set(templateCode);
+    try {
+      const template = await firstValueFrom(
+        this.pdfTemplatesService.getTemplateByName(templateCode),
+      );
+      if (!template) {
+        throw new Error('Template not found');
+      }
+
+      let items: unknown[] = [];
+      const p = this.project();
+      const systemInfo = p?.system
+        ? {
+            name: p.system.name,
+            version: p.system.version,
+            description: p.system.description,
+            category: p.system.categoryCode?.toString(),
+          }
+        : {};
+
+      if (templateCode === 'csv.urs_artifact' && this.ursArtifact) {
+        items = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
+      } else if (templateCode.startsWith('csv.spec.') && this.fsCsArtifact && fsCsType) {
+        items = await firstValueFrom(
+          this.fsCsService.loadRequirements(this.fsCsArtifact.id, fsCsType as FsCsRequirementType),
+        );
+      } else if (templateCode === 'csv.risk_analysis_artifact' && this.riskAnalysisArtifactId) {
+        const riskItems = await firstValueFrom(
+          this.riskService.loadItems(this.riskAnalysisArtifactId),
+        );
+        // Map traceIDs to an array of codes if needed, or just pass as is.
+        items = riskItems.map((r) => ({
+          ...r,
+          traceUrs: r.traceUrsIds || [],
+          traceFsCs: r.traceFsCsIds || [],
+        }));
+      }
+
+      const payload = {
+        system: systemInfo,
+        items,
+      };
+
+      const pdfOptions = template.options
+        ? {
+            ...template.options,
+            title: systemInfo.name ? `${systemInfo.name} - ${templateCode}` : templateCode,
+            marginTop: template.options.marginTop + 'px',
+            marginBottom: template.options.marginBottom + 'px',
+            marginLeft: template.options.marginLeft + 'px',
+            marginRight: template.options.marginRight + 'px',
+          }
+        : { title: templateCode };
+
+      const blob = await firstValueFrom(
+        this.reportsService.renderRaw({
+          html: template.html,
+          css: template.css,
+          header: template.header,
+          footer: template.footer,
+          options: pdfOptions as unknown as PDFOptions,
+          data: payload,
+        }),
+      );
+
+      const url = URL.createObjectURL(blob);
+      this.router.navigate(['/pdf-viewer'], { queryParams: { src: url } });
+    } catch (err) {
+      console.error('Failed to generate PDF', err);
+    } finally {
+      this.generatingPdf.set(null);
+    }
   }
 
   protected goBack(): void {
