@@ -120,7 +120,7 @@ export class ArtifactImportExportService {
   private buildExportData(
     projectCode: string,
     projectName: string,
-    ursArtifact: { customFieldValues?: any },
+    ursArtifact: { customFieldValues?: Record<string, unknown> | null },
     ursReqs: {
       id: string;
       code: number;
@@ -129,7 +129,7 @@ export class ArtifactImportExportService {
       category: UrsCategory;
       groupName: string | null;
     }[],
-    fsCsArtifact: { customFieldValues?: any },
+    fsCsArtifact: { customFieldValues?: Record<string, unknown> | null },
     fsCsReqs: {
       id: string;
       reqType: FsCsRequirementType;
@@ -139,7 +139,7 @@ export class ArtifactImportExportService {
       description: string;
       traceUrsIds?: string[];
     }[],
-    riskArtifact: { customFieldValues?: any },
+    riskArtifact: { customFieldValues?: Record<string, unknown> | null },
     riskItems: {
       code: number;
       position: number;
@@ -378,7 +378,7 @@ export class ArtifactImportExportService {
       // Since RiskService doesn't have a bulk create, we use loop for now.
       // We iterate to create items sequentially or in parallel.
 
-      const promises = riskItemsToImport.map((item) => {
+      for (const item of riskItemsToImport) {
         const validTraceUrsIds = (item.traceUrsTempIds || [])
           .map((tempId) => tempIdToNewIdMap.get(tempId))
           .filter((id): id is string => !!id);
@@ -387,28 +387,26 @@ export class ArtifactImportExportService {
           .map((tempId) => fsCsTempIdToNewIdMap.get(tempId))
           .filter((id): id is string => !!id);
 
-        return lastValueFrom(this.riskService.createItem(riskArtifact.id, item.position)).then(
-          (newItem) => {
-            return lastValueFrom(
-              this.riskService.updateItem(newItem.id, {
-                failureMode: item.failureMode,
-                cause: item.cause,
-                effect: item.effect,
-                severity: item.severity,
-                probability: item.probability,
-                detectability: item.detectability,
-                rpn: item.rpn,
-                riskClass: item.riskClass,
-                mitigation: item.mitigation,
-                traceUrsIds: validTraceUrsIds,
-                traceFsCsIds: validTraceFsCsIds,
-              }),
-            );
-          },
+        const newItem = await lastValueFrom(
+          this.riskService.createItem(riskArtifact.id, item.position),
         );
-      });
 
-      await Promise.all(promises);
+        await lastValueFrom(
+          this.riskService.updateItem(newItem.id, {
+            failureMode: item.failureMode,
+            cause: item.cause,
+            effect: item.effect,
+            severity: item.severity,
+            probability: item.probability,
+            detectability: item.detectability,
+            rpn: item.rpn,
+            riskClass: item.riskClass,
+            mitigation: item.mitigation,
+            traceUrsIds: validTraceUrsIds,
+            traceFsCsIds: validTraceFsCsIds,
+          }),
+        );
+      }
     }
   }
 }
