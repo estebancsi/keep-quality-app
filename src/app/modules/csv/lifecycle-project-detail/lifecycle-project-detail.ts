@@ -238,7 +238,7 @@ import { ValidationPlanArtifact } from '../validation-plan.interface';
 
               @if (showRiskTab()) {
                 <p-tabpanel value="risk-analysis">
-                  <div class="flex justify-end mb-4 gap-2">
+                  <div class="flex justify-end my-4 gap-2">
                     <p-button
                       label="Edit PDF"
                       icon="pi pi-pencil"
@@ -265,7 +265,7 @@ import { ValidationPlanArtifact } from '../validation-plan.interface';
 
               @if (showFsCsTab()) {
                 <p-tabpanel value="fs-cs">
-                  <div class="flex flex-col gap-8">
+                  <div class="flex flex-col gap-8 mt-4">
                     @for (type of fsCsReqTypes(); track type) {
                       <div>
                         <!-- Custom Fields for this Type -->
