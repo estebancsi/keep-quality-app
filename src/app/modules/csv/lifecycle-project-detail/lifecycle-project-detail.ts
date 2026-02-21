@@ -33,6 +33,8 @@ import { ArtifactImportDialogComponent } from '../components/artifact-import-dia
 import { ReportsService, PDFOptions } from '@/shared/services/reports.service';
 import { PdfTemplatesService } from '@/modules/pdf-templates/services/pdf-templates.service';
 import { RiskAnalysisService } from '../services/risk-analysis.service';
+import { ValidationPlanService } from '../services/validation-plan.service';
+import { ValidationPlanArtifact } from '../validation-plan.interface';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -122,6 +124,12 @@ import { RiskAnalysisService } from '../services/risk-analysis.service';
                 <i class="pi pi-file-edit mr-2"></i>
                 User Requirements (URS)
               </p-tab>
+              @if (showValidationPlanTab()) {
+                <p-tab value="validation-plan">
+                  <i class="pi pi-check-circle mr-2"></i>
+                  Validation Plan
+                </p-tab>
+              }
               @if (showFsCsTab()) {
                 <p-tab value="fs-cs">
                   <i class="pi pi-list mr-2"></i>
@@ -180,6 +188,53 @@ import { RiskAnalysisService } from '../services/risk-analysis.service';
 
                 <app-urs-requirements-table [lifecycleProjectId]="p.id" [system]="p.system" />
               </p-tabpanel>
+
+              @if (showValidationPlanTab()) {
+                <p-tabpanel value="validation-plan">
+                  <div class="mb-4">
+                    <div class="flex justify-between items-center mt-4">
+                      <h3 class="text-lg font-semibold">Document Properties</h3>
+                      <div class="flex justify-end gap-2">
+                        <p-button
+                          label="Edit PDF"
+                          icon="pi pi-pencil"
+                          [outlined]="true"
+                          size="small"
+                          (click)="editPdf('csv.validation_plan')"
+                        />
+                        <p-button
+                          label="Generate PDF"
+                          icon="pi pi-file-pdf"
+                          [outlined]="true"
+                          size="small"
+                          [loading]="generatingPdf() === 'csv.validation_plan'"
+                          (click)="generatePdf('csv.validation_plan')"
+                        />
+                        @if (validationPlanSchema(); as schema) {
+                          <p-button
+                            label="Save Properties"
+                            icon="pi pi-save"
+                            [loading]="savingValidationPlan()"
+                            (click)="saveValidationPlan()"
+                            size="small"
+                          />
+                        }
+                      </div>
+                    </div>
+                    @if (validationPlanSchema(); as schema) {
+                      <app-custom-fields-renderer
+                        [schema]="schema"
+                        [values]="validationPlanValues()"
+                        (valuesChange)="onValidationPlanValuesChanged($event)"
+                      />
+                    } @else if (!loading()) {
+                      <div class="text-surface-500 italic mt-4">
+                        Failed to load Validation Plan schema.
+                      </div>
+                    }
+                  </div>
+                </p-tabpanel>
+              }
 
               @if (showRiskTab()) {
                 <p-tabpanel value="risk-analysis">
@@ -297,12 +352,14 @@ export class LifecycleProjectDetail {
   private readonly riskService = inject(RiskAnalysisService);
   private readonly reportsService = inject(ReportsService);
   private readonly pdfTemplatesService = inject(PdfTemplatesService);
+  private readonly validationPlanService = inject(ValidationPlanService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
 
   /** Only show URS tab for validation/revalidation projects */
   protected readonly showUrsTab = signal(false);
+  protected readonly showValidationPlanTab = signal(false);
 
   /** Only show FS/CS tab for GAMP Cat 4 & 5 (Validation/Revalidation) */
   protected readonly showFsCsTab = signal(false);
@@ -320,6 +377,12 @@ export class LifecycleProjectDetail {
 
   /** The URS artifact for persisting custom field values */
   private ursArtifact: UrsArtifact | null = null;
+
+  // Validation Plan State
+  protected readonly validationPlanSchema = signal<CustomFieldsSchema | null>(null);
+  protected readonly validationPlanValues = signal<Record<string, unknown>>({});
+  protected readonly savingValidationPlan = signal(false);
+  private validationPlanArtifact: ValidationPlanArtifact | null = null;
 
   // Export / Import State
   protected readonly isExporting = signal(false);
@@ -355,10 +418,12 @@ export class LifecycleProjectDetail {
         this.project.set(p);
         const isValidation = p.type === 'validation' || p.type === 'revalidation';
         this.showUrsTab.set(isValidation);
+        this.showValidationPlanTab.set(isValidation);
         this.showRiskTab.set(isValidation);
 
         if (isValidation) {
           this.loadRiskArtifact(p.id);
+          this.loadValidationPlanData(p.id);
         }
 
         const categoryCode = p.system?.categoryCode;
@@ -430,6 +495,42 @@ export class LifecycleProjectDetail {
           this.savingCustomFields.set(false);
         },
         error: () => this.savingCustomFields.set(false),
+      });
+  }
+
+  private loadValidationPlanData(projectId: string): void {
+    // Load schema
+    this.customFieldsService.getSchemaByName('csv.validation_plan').subscribe({
+      next: (schema) => this.validationPlanSchema.set(schema),
+      error: () => this.validationPlanSchema.set(null),
+    });
+
+    // Load artifact
+    this.validationPlanService.getOrCreateArtifact(projectId).subscribe({
+      next: (artifact) => {
+        this.validationPlanArtifact = artifact;
+        this.validationPlanValues.set(artifact.customFieldValues ?? {});
+      },
+    });
+  }
+
+  protected onValidationPlanValuesChanged(values: Record<string, unknown>): void {
+    this.validationPlanValues.set(values);
+  }
+
+  protected saveValidationPlan(): void {
+    if (!this.validationPlanArtifact) return;
+
+    this.savingValidationPlan.set(true);
+    this.validationPlanService
+      .updateArtifactCustomFields(this.validationPlanArtifact.id, this.validationPlanValues())
+      .subscribe({
+        next: (updated) => {
+          this.validationPlanArtifact = updated;
+          this.validationPlanValues.set(updated.customFieldValues ?? {});
+          this.savingValidationPlan.set(false);
+        },
+        error: () => this.savingValidationPlan.set(false),
       });
   }
 
@@ -587,6 +688,9 @@ export class LifecycleProjectDetail {
           traceUrs: r.traceUrsIds || [],
           traceFsCs: r.traceFsCsIds || [],
         }));
+      } else if (templateCode === 'csv.validation_plan' && this.validationPlanArtifact) {
+        // Validation plan has no items list, just properties
+        items = [];
       }
 
       const payload = {
