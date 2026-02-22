@@ -455,10 +455,6 @@ export class TestVerificationTableComponent {
   protected readonly fsCsOptions = signal<{ label: string; value: string }[]>([]);
   protected readonly riskOptions = signal<{ label: string; value: string }[]>([]);
 
-  private ursCodeMap = new Map<string, string>();
-  private fsCsCodeMap = new Map<string, string>();
-  private riskCodeMap = new Map<string, string>();
-
   private readonly loadEffect = effect(() => {
     const projectId = this.lifecycleProjectId();
     const phaseVal = this.phase();
@@ -493,19 +489,9 @@ export class TestVerificationTableComponent {
         this.ursOptions.set(
           reqs.map((r: UrsRequirement) => ({ label: `URS-${r.code}`, value: r.id })),
         );
-        reqs.forEach((r: UrsRequirement) => this.ursCodeMap.set(r.id, `URS-${r.code}`));
       });
 
     // Load FS/CS
-    this.fsCsService
-      .getOrCreateArtifact(projectId)
-      .pipe(
-        switchMap((art: FsCsArtifact) => this.fsCsService.loadRequirements(art.id, 'Functional')), // Could load all? Let's just load the artifact and then load both Functional/Configuration
-        catchError(() => of([] as FsCsRequirement[])),
-      )
-      .subscribe();
-
-    // Proper FS/CS Loading
     this.fsCsService.getOrCreateArtifact(projectId).subscribe({
       next: (art: FsCsArtifact) => {
         combineLatest([
@@ -528,11 +514,6 @@ export class TestVerificationTableComponent {
                 return { label: `${prefix}-${r.code}`, value: r.id };
               }),
             );
-            allTypes.forEach((r: FsCsRequirement) => {
-              const prefix =
-                r.reqType === 'Functional' ? 'FS' : r.reqType === 'Configuration' ? 'CS' : 'DS';
-              this.fsCsCodeMap.set(r.id, `${prefix}-${r.code}`);
-            });
           },
         );
       },
@@ -549,7 +530,6 @@ export class TestVerificationTableComponent {
         this.riskOptions.set(
           risks.map((r: RiskAnalysisItem) => ({ label: `RISK-${r.code}`, value: r.id })),
         );
-        risks.forEach((r: RiskAnalysisItem) => this.riskCodeMap.set(r.id, `RISK-${r.code}`));
       });
   }
 
@@ -806,13 +786,13 @@ export class TestVerificationTableComponent {
   // --- Display Helpers ---
 
   getUrsCode(id: string) {
-    return this.ursCodeMap.get(id) || 'Unknown URS';
+    return this.ursOptions().find((o) => o.value === id)?.label || 'Unknown URS';
   }
   getFsCsCode(id: string) {
-    return this.fsCsCodeMap.get(id) || 'Unknown Spec';
+    return this.fsCsOptions().find((o) => o.value === id)?.label || 'Unknown Spec';
   }
   getRiskCode(id: string) {
-    return this.riskCodeMap.get(id) || 'Unknown Risk';
+    return this.riskOptions().find((o) => o.value === id)?.label || 'Unknown Risk';
   }
 
   getStatusSeverity(status: string): 'success' | 'danger' | 'info' | 'warn' {
