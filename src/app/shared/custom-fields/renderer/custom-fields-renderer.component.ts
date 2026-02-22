@@ -11,6 +11,7 @@ import { MultiSelectModule } from 'primeng/multiselect';
 import { DatePickerModule } from 'primeng/datepicker';
 import { EditorModule } from 'primeng/editor';
 import { RadioButtonModule } from 'primeng/radiobutton';
+import { TooltipModule } from 'primeng/tooltip';
 import {
   CustomFieldsSchema,
   CustomFieldDefinition,
@@ -62,6 +63,7 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
     DatePickerModule,
     EditorModule,
     RadioButtonModule,
+    TooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -84,12 +86,21 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           @for (field of group.fields; track field.name) {
             <div class="flex flex-col gap-1" [class.md:col-span-2]="isWideField(field)">
-              <label [for]="'cf-' + field.name" class="text-sm font-medium">
-                {{ field.label }}
-                @if (field.required) {
-                  <span class="text-red-500">*</span>
+              <div class="flex items-center gap-1.5">
+                <label [for]="'cf-' + field.name" class="text-sm font-medium">
+                  {{ field.label }}
+                  @if (field.required) {
+                    <span class="text-red-500">*</span>
+                  }
+                </label>
+                @if (field.helpText) {
+                  <i
+                    class="pi pi-info-circle text-surface-400 hover:text-surface-600 transition-colors cursor-help text-sm"
+                    [pTooltip]="field.helpText"
+                    tooltipPosition="top"
+                  ></i>
                 }
-              </label>
+              </div>
 
               @if (field.description) {
                 <small class="text-surface-500">{{ field.description }}</small>
@@ -388,10 +399,6 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
                   [maxSelectedLabels]="3"
                   styleClass="w-full"
                 />
-              }
-
-              @if (field.helpText) {
-                <small class="text-surface-400 italic">{{ field.helpText }}</small>
               }
             </div>
           }
