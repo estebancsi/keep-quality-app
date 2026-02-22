@@ -225,6 +225,7 @@ import { ValidationPlanArtifact } from '../validation-plan.interface';
                       <app-custom-fields-renderer
                         [schema]="schema"
                         [values]="validationPlanValues()"
+                        [context]="{ system: p.system }"
                         (valuesChange)="onValidationPlanValuesChanged($event)"
                       />
                     } @else if (!loading()) {

@@ -35,6 +35,7 @@ import {
   UserFieldDefinition,
 } from '../types/custom-fields.types';
 import { getFieldsByGroup } from '../utils/custom-fields.helpers';
+import { hydratePrompt } from '../../../core/utils/prompt.utils';
 
 /**
  * Reusable custom fields renderer.
@@ -108,44 +109,72 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
 
               <!-- TEXT -->
               @if (isTextField(field)) {
-                <input
-                  pInputText
-                  [id]="'cf-' + field.name"
-                  [type]="getInputType(asTextField(field))"
-                  [ngModel]="getFieldValue(field.name)"
-                  (ngModelChange)="onFieldChange(field.name, $event)"
-                  [placeholder]="field.placeholder ?? ''"
-                  [maxlength]="asTextField(field).config.maxLength ?? null"
-                  class="w-full"
-                />
-                @if (
-                  asTextField(field).config.showCharacterCount &&
-                  asTextField(field).config.maxLength
-                ) {
-                  <small class="text-surface-400 text-right">
-                    {{ getStringLength(field.name) }} /
-                    {{ asTextField(field).config.maxLength }}
-                  </small>
-                }
+                <div class="flex items-start gap-2">
+                  <div class="grow w-full">
+                    <input
+                      pInputText
+                      [id]="'cf-' + field.name"
+                      [type]="getInputType(asTextField(field))"
+                      [ngModel]="getFieldValue(field.name)"
+                      (ngModelChange)="onFieldChange(field.name, $event)"
+                      [placeholder]="field.placeholder ?? ''"
+                      [maxlength]="asTextField(field).config.maxLength ?? null"
+                      class="w-full"
+                    />
+                    @if (
+                      asTextField(field).config.showCharacterCount &&
+                      asTextField(field).config.maxLength
+                    ) {
+                      <small class="block text-surface-400 text-right mt-1">
+                        {{ getStringLength(field.name) }} /
+                        {{ asTextField(field).config.maxLength }}
+                      </small>
+                    }
+                  </div>
+                  @if (asTextField(field).config.template) {
+                    <button
+                      type="button"
+                      class="shrink-0 mt-1 p-2 text-surface-500 hover:text-primary hover:bg-surface-100 rounded-full transition-colors flex items-center justify-center"
+                      (click)="applyTemplate(field.name, asTextField(field).config.template)"
+                      pTooltip="Use template"
+                      tooltipPosition="top"
+                    >
+                      <i class="pi pi-sparkles"></i>
+                    </button>
+                  }
+                </div>
               }
 
               <!-- LONG_TEXT (plain) -->
               @if (isLongTextField(field) && !asLongTextField(field).config.richText) {
-                <textarea
-                  pTextarea
-                  [id]="'cf-' + field.name"
-                  [ngModel]="getFieldValue(field.name)"
-                  (ngModelChange)="onFieldChange(field.name, $event)"
-                  [placeholder]="field.placeholder ?? ''"
-                  [rows]="asLongTextField(field).config.rows"
-                  [autoResize]="asLongTextField(field).config.resizable"
-                  class="w-full"
-                ></textarea>
+                <div class="relative">
+                  <textarea
+                    pTextarea
+                    [id]="'cf-' + field.name"
+                    [ngModel]="getFieldValue(field.name)"
+                    (ngModelChange)="onFieldChange(field.name, $event)"
+                    [placeholder]="field.placeholder ?? ''"
+                    [rows]="asLongTextField(field).config.rows"
+                    [autoResize]="asLongTextField(field).config.resizable"
+                    class="w-full"
+                  ></textarea>
+                  @if (asLongTextField(field).config.template) {
+                    <button
+                      type="button"
+                      class="absolute top-2 right-2 p-1.5 text-surface-500 hover:text-primary hover:bg-surface-100 rounded-full transition-colors bg-white/80 backdrop-blur"
+                      (click)="applyTemplate(field.name, asLongTextField(field).config.template)"
+                      pTooltip="Use template"
+                      tooltipPosition="top"
+                    >
+                      <i class="pi pi-sparkles"></i>
+                    </button>
+                  }
+                </div>
                 @if (
                   asLongTextField(field).config.showCharacterCount &&
                   asLongTextField(field).config.maxLength
                 ) {
-                  <small class="text-surface-400 text-right">
+                  <small class="block text-surface-400 text-right mt-1">
                     {{ getStringLength(field.name) }} /
                     {{ asLongTextField(field).config.maxLength }}
                   </small>
@@ -154,11 +183,24 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
 
               <!-- LONG_TEXT (rich text) -->
               @if (isLongTextField(field) && asLongTextField(field).config.richText) {
-                <p-editor
-                  [ngModel]="getFieldValue(field.name)"
-                  (ngModelChange)="onFieldChange(field.name, $event)"
-                  [style]="{ height: asLongTextField(field).config.rows * 24 + 'px' }"
-                />
+                <div class="relative">
+                  <p-editor
+                    [ngModel]="getFieldValue(field.name)"
+                    (ngModelChange)="onFieldChange(field.name, $event)"
+                    [style]="{ height: asLongTextField(field).config.rows * 24 + 'px' }"
+                  />
+                  @if (asLongTextField(field).config.template) {
+                    <button
+                      type="button"
+                      class="absolute top-2 right-2 z-10 p-1.5 text-surface-500 hover:text-primary bg-surface-0 hover:bg-surface-100 rounded-md transition-colors border border-surface-200 shadow-sm"
+                      (click)="applyTemplate(field.name, asLongTextField(field).config.template)"
+                      pTooltip="Use template"
+                      tooltipPosition="top"
+                    >
+                      <i class="pi pi-sparkles"></i>
+                    </button>
+                  }
+                </div>
               }
 
               <!-- INTEGER -->
@@ -414,6 +456,9 @@ export class CustomFieldsRendererComponent {
   /** Current field values (key = field name, value = field value) */
   readonly values = input.required<Record<string, unknown>>();
 
+  /** Context record providing variables accessible during template hydration */
+  readonly context = input<Record<string, unknown>>({});
+
   /** User options for USER fields — parent must supply [{label, value}] */
   readonly userOptions = input<{ label: string; value: string }[]>([]);
 
@@ -491,6 +536,12 @@ export class CustomFieldsRendererComponent {
   protected onFieldChange(fieldName: string, value: unknown): void {
     const updated = { ...this.values(), [fieldName]: value };
     this.valuesChange.emit(updated);
+  }
+
+  protected applyTemplate(fieldName: string, template?: string): void {
+    if (!template) return;
+    const hydrated = hydratePrompt(template, this.context());
+    this.onFieldChange(fieldName, hydrated);
   }
 
   /** Fields that should span the full width (LONG_TEXT, rich text, etc.) */

@@ -8,6 +8,7 @@ import {
   SystemPromptDto,
   UpdateSystemPromptDto,
 } from '../interfaces/system-prompts.types';
+import { hydratePrompt } from '../utils/prompt.utils';
 
 @Injectable({
   providedIn: 'root',
@@ -99,23 +100,7 @@ export class SystemPromptsService {
   }
 
   hydratePrompt(template: string, context: Record<string, unknown>): string {
-    return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, path) => {
-      const keys = path.split('.');
-      let value: unknown = context;
-
-      for (const key of keys) {
-        if (value && typeof value === 'object' && key in value) {
-          value = (value as Record<string, unknown>)[key];
-        } else {
-          // If path is not found, leave the placeholder intact or return empty string.
-          // Leaving it intact is safer for debugging prompt templates.
-          return match;
-        }
-      }
-
-      // Handle various value types for robust hydration
-      return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-    });
+    return hydratePrompt(template, context);
   }
 
   private toDomain(dto: SystemPromptDto): SystemPrompt {

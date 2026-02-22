@@ -23,7 +23,14 @@ export interface FieldValidation {
 
 export interface Condition {
   fieldId: string;
-  operator: 'EQUALS' | 'NOT_EQUALS' | 'CONTAINS' | 'GREATER_THAN' | 'LESS_THAN' | 'IS_EMPTY' | 'IS_NOT_EMPTY';
+  operator:
+    | 'EQUALS'
+    | 'NOT_EQUALS'
+    | 'CONTAINS'
+    | 'GREATER_THAN'
+    | 'LESS_THAN'
+    | 'IS_EMPTY'
+    | 'IS_NOT_EMPTY';
   value: any;
 }
 
@@ -48,7 +55,16 @@ export interface FieldGroup {
 }
 
 // Field Type Enum
-export type FieldType = 'BOOLEAN' | 'DATE' | 'DATETIME' | 'INTEGER' | 'LIST' | 'TEXT' | 'LONG_TEXT' | 'TIME' | 'USER';
+export type FieldType =
+  | 'BOOLEAN'
+  | 'DATE'
+  | 'DATETIME'
+  | 'INTEGER'
+  | 'LIST'
+  | 'TEXT'
+  | 'LONG_TEXT'
+  | 'TIME'
+  | 'USER';
 
 // Base field configuration interface
 export interface BaseFieldConfig {
@@ -117,6 +133,7 @@ export interface TextFieldConfig extends BaseFieldConfig {
   inputType: 'TEXT' | 'EMAIL' | 'URL' | 'PHONE' | 'PASSWORD';
   autoComplete?: string;
   showCharacterCount: boolean;
+  template?: string;
 }
 
 export interface LongTextFieldConfig extends BaseFieldConfig {
@@ -128,6 +145,7 @@ export interface LongTextFieldConfig extends BaseFieldConfig {
   resizable: boolean;
   showCharacterCount: boolean;
   richText: boolean;
+  template?: string;
 }
 
 export interface TimeFieldConfig extends BaseFieldConfig {
@@ -222,7 +240,10 @@ export type CustomFieldDefinition =
   | UserFieldDefinition;
 
 // Helper type to get config by type
-export type ConfigByType<T extends FieldType> = Extract<CustomFieldDefinition, { type: T }>['config'];
+export type ConfigByType<T extends FieldType> = Extract<
+  CustomFieldDefinition,
+  { type: T }
+>['config'];
 
 // Main Schema Interface
 export interface CustomFieldsSchema {

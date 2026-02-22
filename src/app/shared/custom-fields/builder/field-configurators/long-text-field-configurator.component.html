@@ -3,7 +3,7 @@
     <h3 class="text-md font-medium text-gray-900 mb-3">Long Text Configuration</h3>
     <div class="space-y-3">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Rows</label>
+        <span class="block text-sm font-medium text-gray-700 mb-1">Rows</span>
         <input
           type="number"
           [(ngModel)]="f.config.rows"
@@ -38,6 +38,29 @@
         />
         <span class="text-sm text-gray-700">Enable rich text</span>
       </label>
+
+      <div>
+        <span class="block text-sm font-medium text-gray-700 mb-1">Suggestion Template</span>
+        @if (f.config.richText) {
+          <p-editor
+            [(ngModel)]="f.config.template"
+            (onTextChange)="updateField()"
+            [style]="{ height: '120px' }"
+            placeholder="e.g. Please explain why {{ '{{ item.name }}' }} failed."
+          ></p-editor>
+        } @else {
+          <textarea
+            [(ngModel)]="f.config.template"
+            (blur)="updateField()"
+            rows="4"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+            placeholder="e.g. Please explain why {{ '{{ item.name }}' }} failed."
+          ></textarea>
+        }
+        <p class="text-xs text-gray-500 mt-1">
+          Use {{ '{{ placeholder }}' }} syntax for variables.
+        </p>
+      </div>
     </div>
   </div>
 }
