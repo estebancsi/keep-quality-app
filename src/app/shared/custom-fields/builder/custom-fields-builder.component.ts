@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,17 +27,15 @@ import { FormPreviewComponent } from './form-preview/form-preview.component';
   styleUrls: ['./custom-fields-builder.component.scss'],
 })
 export class CustomFieldsBuilderComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly customFieldsService = inject(CustomFieldsService);
+
   currentSchema = signal<CustomFieldsSchema | null>(null);
   selectedField = signal<CustomFieldDefinition | null>(null);
 
   isLoading = signal(false);
   error = signal<string | null>(null);
-
-  constructor(
-    private customFieldsService: CustomFieldsService,
-    private route: ActivatedRoute,
-    private router: Router,
-  ) {}
 
   ngOnInit(): void {
     this.route.paramMap.subscribe((params) => {

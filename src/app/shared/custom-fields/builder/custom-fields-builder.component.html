@@ -7,77 +7,103 @@
         <button (click)="saveSchema()" class="action-button save-button" [disabled]="isLoading()">
           {{ isLoading() ? 'Saving...' : 'Save Schema' }}
         </button>
-        @if (currentSchema(); as schema) { @if (schema.id) {
-        <button (click)="deleteSchema()" class="action-button delete-button" [disabled]="isLoading()">Delete</button>
-        } @else {
-        <button routerLink="/custom-fields" class="action-button cancel-button">Cancel</button>
-        } }
+        @if (currentSchema(); as schema) {
+          @if (schema.id) {
+            <button
+              (click)="deleteSchema()"
+              class="action-button delete-button"
+              [disabled]="isLoading()"
+            >
+              Delete
+            </button>
+          } @else {
+            <button routerLink="/custom-fields" class="action-button cancel-button">Cancel</button>
+          }
+        }
       </div>
     </div>
     @if (error()) {
-    <p class="error-message">{{ error() }}</p>
+      <p class="error-message">{{ error() }}</p>
     }
   </div>
 
   <!-- Main Content -->
   @if (currentSchema(); as schema) {
-  <!-- Schema Info -->
-  <div class="schema-info">
-    <div class="info-grid">
-      <div class="form-group">
-        <label>Schema Name (internal)</label>
-        <input type="text" [(ngModel)]="schema.name" class="form-control" placeholder="Enter schema name (e.g., projects, tasks)" />
+    <!-- Schema Info -->
+    <div class="schema-info">
+      <div class="info-grid">
+        <div class="form-group">
+          <label for="schema-name">Schema Name (internal)</label>
+          <input
+            id="schema-name"
+            type="text"
+            [(ngModel)]="schema.name"
+            class="form-control"
+            placeholder="Enter schema name (e.g., projects, tasks)"
+          />
+        </div>
+        <div class="form-group">
+          <label for="schema-description">Description</label>
+          <input
+            id="schema-description"
+            type="text"
+            [(ngModel)]="schema.description"
+            class="form-control"
+            placeholder="Enter description"
+          />
+        </div>
       </div>
-      <div class="form-group">
-        <label>Description</label>
-        <input type="text" [(ngModel)]="schema.description" class="form-control" placeholder="Enter description" />
-      </div>
-    </div>
-  </div>
-
-  <!-- Builder Layout -->
-  <div class="builder-layout">
-    <!-- Left Sidebar - Field Groups -->
-    <div class="panel groups-panel">
-      <h2 class="panel-title">Field Groups</h2>
-      <app-field-group-manager
-        [groups]="schema.groups"
-        [fields]="schema.fields"
-        (groupAdded)="addGroup($event)"
-        (groupUpdated)="updateGroup($event)"
-        (groupDeleted)="deleteGroup($event)"
-        (groupsReordered)="reorderGroups($event)"
-        (fieldAdded)="addFieldToGroup($event)"
-        (fieldMoved)="reorderFields($event)"
-      >
-      </app-field-group-manager>
     </div>
 
-    <!-- Center - Field Editor -->
-    <div class="panel editor-panel">
-      <h2 class="panel-title">Field Editor</h2>
-      @if (selectedField(); as field) {
-      <app-field-editor [field]="field" (fieldUpdated)="updateField($event)" (fieldDeleted)="deleteField($event.name)"> </app-field-editor>
-      } @else {
-      <div class="no-field-selected">
-        <p>Select a field to edit its properties</p>
-        <p class="text-sm">Or add a new field from the field groups panel</p>
+    <!-- Builder Layout -->
+    <div class="builder-layout">
+      <!-- Left Sidebar - Field Groups -->
+      <div class="panel groups-panel">
+        <h2 class="panel-title">Field Groups</h2>
+        <app-field-group-manager
+          [groups]="schema.groups"
+          [fields]="schema.fields"
+          (groupAdded)="addGroup($event)"
+          (groupUpdated)="updateGroup($event)"
+          (groupDeleted)="deleteGroup($event)"
+          (groupsReordered)="reorderGroups($event)"
+          (fieldAdded)="addFieldToGroup($event)"
+          (fieldMoved)="reorderFields($event)"
+        >
+        </app-field-group-manager>
       </div>
-      }
-    </div>
 
-    <!-- Right Sidebar - Preview -->
-    <div class="panel preview-panel">
-      <h2 class="panel-title">Preview</h2>
-      <app-form-preview [schema]="schema" (fieldSelected)="selectField($event)"> </app-form-preview>
+      <!-- Center - Field Editor -->
+      <div class="panel editor-panel">
+        <h2 class="panel-title">Field Editor</h2>
+        @if (selectedField(); as field) {
+          <app-field-editor
+            [field]="field"
+            (fieldUpdated)="updateField($event)"
+            (fieldDeleted)="deleteField($event.name)"
+          >
+          </app-field-editor>
+        } @else {
+          <div class="no-field-selected">
+            <p>Select a field to edit its properties</p>
+            <p class="text-sm">Or add a new field from the field groups panel</p>
+          </div>
+        }
+      </div>
+
+      <!-- Right Sidebar - Preview -->
+      <div class="panel preview-panel">
+        <h2 class="panel-title">Preview</h2>
+        <app-form-preview [schema]="schema" (fieldSelected)="selectField($event)">
+        </app-form-preview>
+      </div>
     </div>
-  </div>
   }
 
   <!-- Loading State -->
   @if (isLoading() && !currentSchema()) {
-  <div class="loading-state">
-    <p>Loading schema...</p>
-  </div>
+    <div class="loading-state">
+      <p>Loading schema...</p>
+    </div>
   }
 </div>

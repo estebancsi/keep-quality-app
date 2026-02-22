@@ -10,6 +10,7 @@ import { SelectModule } from 'primeng/select';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { DatePickerModule } from 'primeng/datepicker';
 import { EditorModule } from 'primeng/editor';
+import { RadioButtonModule } from 'primeng/radiobutton';
 import {
   CustomFieldsSchema,
   CustomFieldDefinition,
@@ -60,6 +61,7 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
     MultiSelectModule,
     DatePickerModule,
     EditorModule,
+    RadioButtonModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -239,37 +241,75 @@ import { getFieldsByGroup } from '../utils/custom-fields.helpers';
                 </div>
               }
 
-              <!-- LIST (single - dropdown) -->
+              <!-- LIST (single - dropdown/radio) -->
               @if (isListField(field) && !asListField(field).config.allowMultiple) {
-                <p-select
-                  [inputId]="'cf-' + field.name"
-                  [ngModel]="getFieldValue(field.name)"
-                  (ngModelChange)="onFieldChange(field.name, $event)"
-                  [options]="asListField(field).config.options"
-                  optionLabel="label"
-                  optionValue="value"
-                  [placeholder]="field.placeholder ?? 'Select...'"
-                  [filter]="asListField(field).config.searchable"
-                  [showClear]="!field.required"
-                  styleClass="w-full"
-                />
+                @if (asListField(field).config.displayStyle === 'RADIO') {
+                  <div class="flex flex-col gap-2">
+                    @for (opt of asListField(field).config.options || []; track opt.value) {
+                      <div class="flex items-center gap-2">
+                        <p-radiobutton
+                          [inputId]="'cf-' + field.name + '-' + opt.value"
+                          [name]="field.name"
+                          [value]="opt.value"
+                          [ngModel]="getFieldValue(field.name)"
+                          (ngModelChange)="onFieldChange(field.name, $event)"
+                        />
+                        <label [for]="'cf-' + field.name + '-' + opt.value" class="text-sm">
+                          {{ opt.label }}
+                        </label>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <p-select
+                    [inputId]="'cf-' + field.name"
+                    [ngModel]="getFieldValue(field.name)"
+                    (ngModelChange)="onFieldChange(field.name, $event)"
+                    [options]="asListField(field).config.options || []"
+                    optionLabel="label"
+                    optionValue="value"
+                    [placeholder]="field.placeholder ?? 'Select...'"
+                    [filter]="asListField(field).config.searchable"
+                    [showClear]="!field.required"
+                    styleClass="w-full"
+                  />
+                }
               }
 
-              <!-- LIST (multiple - multiselect) -->
+              <!-- LIST (multiple - multiselect/checkbox) -->
               @if (isListField(field) && asListField(field).config.allowMultiple) {
-                <p-multiselect
-                  [inputId]="'cf-' + field.name"
-                  [ngModel]="getFieldValue(field.name) ?? []"
-                  (ngModelChange)="onFieldChange(field.name, $event)"
-                  [options]="asListField(field).config.options"
-                  optionLabel="label"
-                  optionValue="value"
-                  [placeholder]="field.placeholder ?? 'Select...'"
-                  [filter]="asListField(field).config.searchable"
-                  [maxSelectedLabels]="3"
-                  [selectionLimit]="asListField(field).config.maxSelections ?? undefined"
-                  styleClass="w-full"
-                />
+                @if (asListField(field).config.displayStyle === 'CHECKBOX') {
+                  <div class="flex flex-col gap-2">
+                    @for (opt of asListField(field).config.options || []; track opt.value) {
+                      <div class="flex items-center gap-2">
+                        <p-checkbox
+                          [inputId]="'cf-' + field.name + '-' + opt.value"
+                          [name]="field.name"
+                          [value]="opt.value"
+                          [ngModel]="getFieldValue(field.name) || []"
+                          (ngModelChange)="onFieldChange(field.name, $event)"
+                        />
+                        <label [for]="'cf-' + field.name + '-' + opt.value" class="text-sm">
+                          {{ opt.label }}
+                        </label>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <p-multiselect
+                    [inputId]="'cf-' + field.name"
+                    [ngModel]="getFieldValue(field.name) ?? []"
+                    (ngModelChange)="onFieldChange(field.name, $event)"
+                    [options]="asListField(field).config.options || []"
+                    optionLabel="label"
+                    optionValue="value"
+                    [placeholder]="field.placeholder ?? 'Select...'"
+                    [filter]="asListField(field).config.searchable"
+                    [maxSelectedLabels]="3"
+                    [selectionLimit]="asListField(field).config.maxSelections ?? undefined"
+                    styleClass="w-full"
+                  />
+                }
               }
 
               <!-- DATE -->
