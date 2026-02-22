@@ -35,6 +35,9 @@ import { PdfTemplatesService } from '@/modules/pdf-templates/services/pdf-templa
 import { RiskAnalysisService } from '../services/risk-analysis.service';
 import { ValidationPlanService } from '../services/validation-plan.service';
 import { ValidationPlanArtifact } from '../validation-plan.interface';
+import { TestVerificationTableComponent } from './components/test-verification-table.component';
+import { TestProtocolService } from '../services/test-protocol.service';
+import { TestProtocol, TestPhase } from '../test-protocol.interface';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -49,6 +52,7 @@ import { ValidationPlanArtifact } from '../validation-plan.interface';
     RiskAnalysisTableComponent,
     CustomFieldsRendererComponent,
     ArtifactImportDialogComponent,
+    TestVerificationTableComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -140,6 +144,12 @@ import { ValidationPlanArtifact } from '../validation-plan.interface';
                 <p-tab value="risk-analysis">
                   <i class="pi pi-shield mr-2"></i>
                   Risk Analysis (FMEA)
+                </p-tab>
+              }
+              @for (phase of testPhases(); track phase) {
+                <p-tab [value]="'test-' + phase">
+                  <i class="pi pi-check-square mr-2"></i>
+                  {{ phase | uppercase }} Protocol
                 </p-tab>
               }
             </p-tablist>
@@ -264,6 +274,51 @@ import { ValidationPlanArtifact } from '../validation-plan.interface';
                 </p-tabpanel>
               }
 
+              @for (phase of testPhases(); track phase) {
+                <p-tabpanel [value]="'test-' + phase">
+                  <div class="mb-4">
+                    <div class="flex justify-between items-center mt-4">
+                      <h3 class="text-lg font-semibold">{{ phase | uppercase }} Properties</h3>
+                      <div class="flex justify-end gap-2">
+                        <p-button
+                          label="Edit PDF"
+                          icon="pi pi-pencil"
+                          size="small"
+                          [outlined]="true"
+                          (click)="editPdf('csv.test_protocol.' + phase)"
+                        />
+                        <p-button
+                          label="Generate PDF"
+                          icon="pi pi-file-pdf"
+                          size="small"
+                          [outlined]="true"
+                          [loading]="generatingPdf() === 'csv.test_protocol.' + phase"
+                          (click)="generatePdf('csv.test_protocol.' + phase, undefined, phase)"
+                        />
+                        @if (testProtocolSchemas()[phase]; as schema) {
+                          <p-button
+                            label="Save Properties"
+                            icon="pi pi-save"
+                            [loading]="savingTestProtocols()[phase] || false"
+                            (click)="saveTestProtocolFields(phase)"
+                            size="small"
+                            [outlined]="true"
+                          />
+                        }
+                      </div>
+                    </div>
+                    @if (testProtocolSchemas()[phase]; as schema) {
+                      <app-custom-fields-renderer
+                        [schema]="schema"
+                        [values]="testProtocolValues()[phase] || {}"
+                        (valuesChange)="onTestProtocolValuesChanged(phase, $event)"
+                      />
+                    }
+                  </div>
+                  <app-test-verification-table [lifecycleProjectId]="p.id" [phase]="phase" />
+                </p-tabpanel>
+              }
+
               @if (showFsCsTab()) {
                 <p-tabpanel value="fs-cs">
                   <div class="flex flex-col gap-8 mt-4">
@@ -354,6 +409,7 @@ export class LifecycleProjectDetail {
   private readonly reportsService = inject(ReportsService);
   private readonly pdfTemplatesService = inject(PdfTemplatesService);
   private readonly validationPlanService = inject(ValidationPlanService);
+  private readonly testProtocolService = inject(TestProtocolService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
@@ -397,6 +453,13 @@ export class LifecycleProjectDetail {
   private fsCsArtifact: FsCsArtifact | null = null;
   private riskAnalysisArtifactId: string | null = null;
 
+  // Test Protocols State
+  protected readonly testPhases = signal<TestPhase[]>([]);
+  protected readonly testProtocolSchemas = signal<Record<string, CustomFieldsSchema | null>>({});
+  protected readonly testProtocolValues = signal<Record<string, Record<string, unknown>>>({});
+  protected readonly savingTestProtocols = signal<Record<string, boolean>>({});
+  private testProtocolArtifacts: Record<string, TestProtocol> = {};
+
   // PDF Generation State
   protected readonly generatingPdf = signal<string | null>(null);
 
@@ -439,6 +502,17 @@ export class LifecycleProjectDetail {
         } else {
           this.showFsCsTab.set(false);
           this.fsCsReqTypes.set([]);
+        }
+
+        if (isValidation) {
+          if (categoryCode === 3) {
+            this.testPhases.set(['iq', 'pq']);
+          } else if (categoryCode === 4 || categoryCode === 5) {
+            this.testPhases.set(['iq', 'oq', 'pq']);
+          } else {
+            this.testPhases.set([]);
+          }
+          this.loadTestProtocolsData(p.id, this.testPhases());
         }
 
         this.loading.set(false);
@@ -596,6 +670,50 @@ export class LifecycleProjectDetail {
       });
   }
 
+  private loadTestProtocolsData(projectId: string, phases: TestPhase[]) {
+    phases.forEach((phase) => {
+      this.testProtocolService.getOrCreateArtifact(projectId, phase).subscribe({
+        next: (artifact) => {
+          this.testProtocolArtifacts[phase] = artifact;
+          this.testProtocolValues.update((prev) => ({
+            ...prev,
+            [phase]: (artifact.customFieldValues as Record<string, unknown>) || {},
+          }));
+        },
+      });
+
+      const schemaName = `csv.test_protocol.${phase}`;
+      this.customFieldsService.getSchemaByName(schemaName).subscribe({
+        next: (schema) => this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: schema })),
+        error: () => this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: null })),
+      });
+    });
+  }
+
+  protected onTestProtocolValuesChanged(phase: string, values: Record<string, unknown>) {
+    this.testProtocolValues.update((prev) => ({ ...prev, [phase]: values }));
+  }
+
+  protected saveTestProtocolFields(phase: string) {
+    const artifact = this.testProtocolArtifacts[phase];
+    if (!artifact) return;
+
+    this.savingTestProtocols.update((prev) => ({ ...prev, [phase]: true }));
+    const currentValues = this.testProtocolValues()[phase] || {};
+
+    this.testProtocolService.updateArtifactCustomFields(artifact.id, currentValues).subscribe({
+      next: (updated) => {
+        this.testProtocolArtifacts[phase] = updated;
+        this.testProtocolValues.update((prev) => ({
+          ...prev,
+          [phase]: (updated.customFieldValues as Record<string, unknown>) || {},
+        }));
+        this.savingTestProtocols.update((prev) => ({ ...prev, [phase]: false }));
+      },
+      error: () => this.savingTestProtocols.update((prev) => ({ ...prev, [phase]: false })),
+    });
+  }
+
   private loadFsCsData(projectId: string, types: FsCsRequirementType[]) {
     this.fsCsService.getOrCreateArtifact(projectId).subscribe({
       next: (artifact) => {
@@ -652,7 +770,11 @@ export class LifecycleProjectDetail {
     });
   }
 
-  protected async generatePdf(templateCode: string, fsCsType?: string): Promise<void> {
+  protected async generatePdf(
+    templateCode: string,
+    fsCsType?: string,
+    testPhase?: string,
+  ): Promise<void> {
     this.generatingPdf.set(templateCode);
     try {
       const template = await firstValueFrom(
@@ -692,6 +814,20 @@ export class LifecycleProjectDetail {
       } else if (templateCode === 'csv.validation_plan' && this.validationPlanArtifact) {
         // Validation plan has no items list, just properties
         items = [];
+      } else if (templateCode.startsWith('csv.test_protocol.') && testPhase) {
+        const testArtifact = this.testProtocolArtifacts[testPhase];
+        if (testArtifact) {
+          const verifications = await firstValueFrom(
+            this.testProtocolService.loadVerifications(testArtifact.id),
+          );
+          const withSteps = await Promise.all(
+            verifications.map(async (v) => {
+              const steps = await firstValueFrom(this.testProtocolService.loadTestSteps(v.id));
+              return { ...v, testSteps: steps };
+            }),
+          );
+          items = withSteps;
+        }
       }
 
       const payload = {
