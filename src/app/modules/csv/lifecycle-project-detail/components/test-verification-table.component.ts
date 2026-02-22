@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from 'primeng/api';
@@ -25,7 +33,8 @@ import { RiskAnalysisService } from '../../services/risk-analysis.service';
 import { UrsArtifact, UrsRequirement } from '../../urs.interface';
 import { FsCsArtifact, FsCsRequirement } from '../../fs-cs.interface';
 import { RiskAnalysisArtifact, RiskAnalysisItem } from '../../risk-analysis.interface';
-import { combineLatest, of, catchError, switchMap } from 'rxjs';
+import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
+import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
 
 @Component({
   selector: 'app-test-verification-table',
@@ -40,23 +49,38 @@ import { combineLatest, of, catchError, switchMap } from 'rxjs';
     InputTextModule,
     MultiSelectModule,
     TagModule,
+    AiActionButtonComponent,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col gap-3">
       <!-- Toolbar -->
-      <div class="flex items-center justify-between mt-4">
+      <div class="flex items-center justify-between mt-4 mb-3">
         <h3 class="text-lg font-semibold m-0 uppercase">
           {{ phase() }} Verifications / Test Scripts
         </h3>
-        <p-button
-          label="Add Verification"
-          icon="pi pi-plus"
-          size="small"
-          (click)="addVerification()"
-          [loading]="addingVerification()"
-        />
+        <div class="flex items-center gap-2">
+          <app-ai-action-button
+            [action]="'csv.test-verifications:generate'"
+            label="Generate AI Verifications"
+            icon="pi pi-sparkles"
+            size="small"
+            severity="help"
+            [outlined]="true"
+            [context]="aiContextInput()"
+            (actionSuccess)="onAiGenerationSuccess($event)"
+            [tooltip]="'Generate AI Verifications based on ' + phase()"
+            [disabled]="loading() || aiContextInput().items.length === 0"
+          />
+          <p-button
+            label="Add Verification"
+            icon="pi pi-plus"
+            size="small"
+            (click)="addVerification()"
+            [loading]="addingVerification()"
+          />
+        </div>
       </div>
 
       <!-- Main Table for Verifications -->
@@ -455,6 +479,55 @@ export class TestVerificationTableComponent {
   protected readonly fsCsOptions = signal<{ label: string; value: string }[]>([]);
   protected readonly riskOptions = signal<{ label: string; value: string }[]>([]);
 
+  protected readonly ursRequirements = signal<UrsRequirement[]>([]);
+  protected readonly fsCsRequirements = signal<FsCsRequirement[]>([]);
+  protected readonly riskItems = signal<RiskAnalysisItem[]>([]);
+
+  protected readonly aiContextInput = computed(() => {
+    const ph = this.phase();
+    const risks = this.riskItems();
+    const fscs = this.fsCsRequirements();
+    const urs = this.ursRequirements();
+
+    if (ph === 'iq') {
+      const iqRisks = risks.filter((r) =>
+        r.traceFsCsIds?.some((id) =>
+          fscs.find(
+            (f) => f.id === id && (f.reqType === 'Configuration' || f.reqType === 'Design'),
+          ),
+        ),
+      );
+      return {
+        phase: 'iq',
+        items: iqRisks.map((r) => ({
+          risk: r,
+          specs: fscs.filter((f) => r.traceFsCsIds?.includes(f.id)),
+          urs: urs.filter((u) => r.traceUrsIds?.includes(u.id)),
+        })),
+      };
+    } else if (ph === 'oq') {
+      const oqRisks = risks.filter((r) =>
+        r.traceFsCsIds?.some((id) => fscs.find((f) => f.id === id && f.reqType === 'Functional')),
+      );
+      return {
+        phase: 'oq',
+        items: oqRisks.map((r) => ({
+          risk: r,
+          specs: fscs.filter((f) => r.traceFsCsIds?.includes(f.id)),
+          urs: urs.filter((u) => r.traceUrsIds?.includes(u.id)),
+        })),
+      };
+    } else {
+      // pq
+      return {
+        phase: 'pq',
+        items: urs.map((u) => ({
+          urs: u,
+        })),
+      };
+    }
+  });
+
   private readonly loadEffect = effect(() => {
     const projectId = this.lifecycleProjectId();
     const phaseVal = this.phase();
@@ -486,6 +559,7 @@ export class TestVerificationTableComponent {
         catchError(() => of([] as UrsRequirement[])),
       )
       .subscribe((reqs: UrsRequirement[]) => {
+        this.ursRequirements.set(reqs);
         this.ursOptions.set(
           reqs.map((r: UrsRequirement) => ({ label: `URS-${r.code}`, value: r.id })),
         );
@@ -507,6 +581,7 @@ export class TestVerificationTableComponent {
         ]).subscribe(
           ([func, conf, ds]: [FsCsRequirement[], FsCsRequirement[], FsCsRequirement[]]) => {
             const allTypes = [...func, ...conf, ...ds];
+            this.fsCsRequirements.set(allTypes);
             this.fsCsOptions.set(
               allTypes.map((r: FsCsRequirement) => {
                 const prefix =
@@ -527,6 +602,7 @@ export class TestVerificationTableComponent {
         catchError(() => of([] as RiskAnalysisItem[])),
       )
       .subscribe((risks: RiskAnalysisItem[]) => {
+        this.riskItems.set(risks);
         this.riskOptions.set(
           risks.map((r: RiskAnalysisItem) => ({ label: `RISK-${r.code}`, value: r.id })),
         );
@@ -805,6 +881,71 @@ export class TestVerificationTableComponent {
         return 'info';
       default:
         return 'warn';
+    }
+  }
+
+  // --- AI Actions ---
+  onAiGenerationSuccess(response: string) {
+    try {
+      const cleanedResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      const generatedVers = JSON.parse(cleanedResponse);
+
+      if (!Array.isArray(generatedVers)) {
+        throw new Error('AI response is not an array');
+      }
+
+      const pId = this.protocolId();
+      if (!pId) return;
+
+      this.loading.set(true);
+
+      const phasePrefix = this.phase().toUpperCase() + '-';
+      let currentMax = this.verifications().reduce((max, ver) => {
+        if (ver.reference.startsWith(phasePrefix)) {
+          const numPart = ver.reference.slice(phasePrefix.length);
+          const num = parseInt(numPart, 10);
+          if (!isNaN(num)) {
+            return Math.max(max, num);
+          }
+        }
+        return max;
+      }, 0);
+
+      const newVerifications = generatedVers.map((v) => {
+        currentMax++;
+        return {
+          reference: `${phasePrefix}${currentMax}`,
+          objective: v.objective || '',
+          acceptanceCriteria: v.acceptanceCriteria || '',
+          status: 'pending' as TestPassFailStatus,
+          traceUrsIds: v.traceUrsIds || [],
+          traceFsCsIds: v.traceFsCsIds || [],
+          traceRiskIds: v.traceRiskIds || [],
+        };
+      });
+
+      const requests = newVerifications.map((v, i) =>
+        this.testProtocolService.saveVerification(
+          { ...v, orderIndex: this.verifications().length + i },
+          pId,
+        ),
+      );
+
+      if (requests.length === 0) {
+        this.loading.set(false);
+        return;
+      }
+
+      forkJoin(requests).subscribe({
+        next: (createdVers) => {
+          this.verifications.update((prev) => [...prev, ...createdVers]);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
+    } catch (e) {
+      console.error('Failed to parse AI response for Verifications generation', e);
+      this.loading.set(false);
     }
   }
 }
