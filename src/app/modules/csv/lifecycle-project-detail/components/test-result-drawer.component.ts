@@ -16,7 +16,7 @@ import { EditorInitEvent, EditorModule } from 'primeng/editor';
 import { ButtonModule } from 'primeng/button';
 import { TestStep } from '../../test-protocol.interface';
 import { StorageService, SignedUrlResponse } from '@/core/services/storage.service';
-import { AttachmentUtilsService } from '../../../../core/utils/attachment.utils';
+import { AttachmentUtilsService } from '@/core/utils/attachment.utils';
 import { AttachmentCache } from '@/core/interfaces/attachment.interface';
 import { lastValueFrom } from 'rxjs';
 import { Editor } from 'primeng/editor';
@@ -26,12 +26,19 @@ import Quill from 'quill';
   selector: 'app-test-result-drawer',
   imports: [CommonModule, FormsModule, DrawerModule, EditorModule, ButtonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: `
+    :host ::ng-deep .p-editor-content img,
+    :host ::ng-deep .rich-text-content img {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  `,
   template: `
     <p-drawer
       [(visible)]="visible"
       position="right"
       header="Test Step Result"
-      styleClass="w-[45%] min-w-[500px]"
+      styleClass="w-[65%] min-w-[500px]"
       (onHide)="close()"
     >
       @if (step()) {
@@ -63,7 +70,8 @@ import Quill from 'quill';
               <p-editor
                 #editor
                 [(ngModel)]="editActualResult"
-                [style]="{ height: '250px' }"
+                class="grow"
+                [style]="{ minHeight: '250px' }"
                 (onInit)="onEditorInit($event)"
               >
                 <ng-template #header>
@@ -117,7 +125,7 @@ import Quill from 'quill';
                 aria-label="Edit actual result"
               >
                 @if (step()?.actualResult) {
-                  <div [innerHTML]="step()?.actualResult"></div>
+                  <div class="rich-text-content" [innerHTML]="step()?.actualResult"></div>
                 } @else {
                   <span class="text-surface-400 italic">Click to add actual result...</span>
                 }
