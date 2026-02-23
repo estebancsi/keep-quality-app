@@ -7,6 +7,7 @@ import {
   input,
   signal,
   DestroyRef,
+  OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -706,7 +707,7 @@ interface GeneratedRiskItem {
     `,
   ],
 })
-export class RiskAnalysisTableComponent {
+export class RiskAnalysisTableComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly riskService = inject(RiskAnalysisService);
   private readonly ursService = inject(UrsService);
@@ -893,14 +894,14 @@ export class RiskAnalysisTableComponent {
     this.loadData(projectId);
   });
 
-  constructor() {
+  ngOnInit() {
     // Subscribe to changes
-    this.ursService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+    this.ursService.requirementsChanged.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       const projectId = this.lifecycleProjectId();
       if (projectId) this.loadTraceOptions(projectId);
     });
 
-    this.fsCsService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+    this.fsCsService.requirementsChanged.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       const projectId = this.lifecycleProjectId();
       if (projectId) this.loadTraceOptions(projectId);
     });

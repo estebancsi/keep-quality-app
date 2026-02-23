@@ -6,6 +6,7 @@ import {
   inject,
   input,
   signal,
+  OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -391,7 +392,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     <p-confirmDialog />
   `,
 })
-export class FsCsRequirementsTable {
+export class FsCsRequirementsTable implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fsCsService = inject(FsCsService);
   private readonly ursService = inject(UrsService);
@@ -439,16 +440,16 @@ export class FsCsRequirementsTable {
     this.loadData(projectId);
   });
 
-  constructor() {
+  ngOnInit() {
     // Subscribe to changes
-    this.fsCsService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+    this.fsCsService.requirementsChanged.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       // Reload this table's requirements
       if (this.artifactId) {
         this.loadRequirements();
       }
     });
 
-    this.ursService.requirementsChanged.pipe(takeUntilDestroyed()).subscribe(() => {
+    this.ursService.requirementsChanged.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       // Reload URS options
       const projectId = this.lifecycleProjectId();
       if (projectId && this.artifactId) {
