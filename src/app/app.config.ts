@@ -20,6 +20,7 @@ import {
   withAppInitializerAuthCheck,
 } from 'angular-auth-oidc-client';
 import { oidcRefreshInterceptor } from './core/interceptors/oidc-refresh.interceptor';
+import { organizationInterceptor } from './core/interceptors/organization.interceptor';
 import { provideMonacoEditor } from 'ngx-monaco-editor-v2';
 import { authConfig } from './auth/auth.config';
 import { routes } from './app.routes';
@@ -57,7 +58,9 @@ export const appConfig: ApplicationConfig = {
       return appConfigService.loadConfig();
     }),
     provideAuth(authConfig, withAppInitializerAuthCheck()),
-    provideHttpClient(withInterceptors([authInterceptor(), oidcRefreshInterceptor])),
+    provideHttpClient(
+      withInterceptors([authInterceptor(), oidcRefreshInterceptor, organizationInterceptor]),
+    ),
     provideMonacoEditor(),
     providePrimeNG({
       theme: {

@@ -1,3 +1,5 @@
+import { AttachmentCache, AttachmentCacheDto } from '@/core/interfaces/attachment.interface';
+
 export type TestPhase = 'iq' | 'oq' | 'pq';
 
 export interface TestProtocol {
@@ -37,6 +39,7 @@ export interface TestStep {
   actualResult: string;
   status: TestPassFailStatus;
   orderIndex: number;
+  attachmentUrls?: AttachmentCache[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -77,6 +80,7 @@ export interface TestStepDto {
   actual_result: string;
   status: string;
   order_index: number;
+  attachment_urls?: AttachmentCacheDto[];
   created_at: string;
   updated_at: string;
 }

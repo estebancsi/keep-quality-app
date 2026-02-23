@@ -35,6 +35,8 @@ import { FsCsArtifact, FsCsRequirement } from '../../fs-cs.interface';
 import { RiskAnalysisArtifact, RiskAnalysisItem } from '../../risk-analysis.interface';
 import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai-action-button.component';
 import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
+import { Textarea } from 'primeng/textarea';
+import { TestResultDrawerComponent } from './test-result-drawer.component';
 
 @Component({
   selector: 'app-test-verification-table',
@@ -47,9 +49,11 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
     ConfirmDialogModule,
     SelectModule,
     InputTextModule,
+    Textarea,
     MultiSelectModule,
     TagModule,
     AiActionButtonComponent,
+    TestResultDrawerComponent,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -57,20 +61,20 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
     <div class="flex flex-col gap-3">
       <!-- Toolbar -->
       <div class="flex items-center justify-between mt-4 mb-3">
-        <h3 class="text-lg font-semibold m-0 uppercase">
-          {{ phase() }} Verifications / Test Scripts
+        <h3 class="text-lg font-semibold m-0">
+          {{ phase() | uppercase }} Verifications / Test Scripts
         </h3>
         <div class="flex items-center gap-2">
           <app-ai-action-button
             [action]="'csv.test-verifications:generate'"
-            label="Generate AI Verifications"
+            label="Generate Verifications"
             icon="pi pi-sparkles"
             size="small"
             severity="help"
             [outlined]="true"
             [context]="aiContextInput()"
             (actionSuccess)="onAiGenerationSuccess($event)"
-            [tooltip]="'Generate AI Verifications based on ' + phase()"
+            [tooltip]="'Generate Verifications for ' + (phase() | uppercase)"
             [disabled]="loading() || aiContextInput().items.length === 0"
           />
           <p-button
@@ -278,7 +282,7 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
                       <th style="width: 5rem">Step</th>
                       <th style="width: 15rem">Action</th>
                       <th style="width: 15rem">Expected Result</th>
-                      <th>Data/Actual Result</th>
+                      <th>Data</th>
                       <th style="width: 8rem">Status</th>
                       <th style="width: 7rem">Actions</th>
                     </tr>
@@ -299,7 +303,7 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
                         </td>
                         <td>
                           <textarea
-                            pInputTextarea
+                            pTextarea
                             [(ngModel)]="editStepAction"
                             rows="2"
                             class="w-full"
@@ -307,7 +311,7 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
                         </td>
                         <td>
                           <textarea
-                            pInputTextarea
+                            pTextarea
                             [(ngModel)]="editStepExpected"
                             rows="2"
                             class="w-full"
@@ -321,13 +325,6 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
                               class="w-full"
                               placeholder="Data to Record"
                             />
-                            <textarea
-                              pInputTextarea
-                              [(ngModel)]="editStepActual"
-                              rows="2"
-                              class="w-full"
-                              placeholder="Actual Result"
-                            ></textarea>
                           </div>
                         </td>
                         <td>
@@ -360,17 +357,23 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
                         <td class="whitespace-pre-wrap">{{ step.action }}</td>
                         <td class="whitespace-pre-wrap">{{ step.expectedResult }}</td>
                         <td>
-                          <div class="flex flex-col gap-1">
+                          <div class="flex flex-col gap-2 items-start justify-center h-full">
                             @if (step.dataToRecord) {
                               <div class="text-sm">
                                 <strong>Data:</strong> {{ step.dataToRecord }}
                               </div>
                             }
-                            @if (step.actualResult) {
-                              <div class="text-sm text-surface-600 dark:text-surface-400">
-                                <strong>Actual:</strong> {{ step.actualResult }}
-                              </div>
-                            }
+                            <p-button
+                              label="Result"
+                              icon="pi pi-file-edit"
+                              size="small"
+                              [outlined]="true"
+                              [severity]="step.actualResult ? 'success' : 'secondary'"
+                              (click)="openResultDrawer(step)"
+                              [pTooltip]="
+                                step.actualResult ? 'View/Edit Actual Result' : 'Add Actual Result'
+                              "
+                            />
                           </div>
                         </td>
                         <td>
@@ -429,6 +432,14 @@ import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
         </ng-template>
       </p-table>
     </div>
+
+    <app-test-result-drawer
+      [(visible)]="resultDrawerVisible"
+      [step]="selectedStepForResult()"
+      [saving]="savingResult()"
+      (save)="onSaveActualResult($event)"
+    />
+
     <p-confirmDialog [key]="'test-proto-dialog'" />
   `,
 })
@@ -463,14 +474,17 @@ export class TestVerificationTableComponent {
   protected editVerFsCs: string[] = [];
   protected editVerRisk: string[] = [];
 
-  // Editing Test Step
   protected editingStepId = signal<string | null>(null);
   protected editStepNumber = '';
   protected editStepAction = '';
   protected editStepExpected = '';
   protected editStepData = '';
-  protected editStepActual = '';
   protected editStepStatus: TestPassFailStatus = 'pending';
+
+  // Drawer state
+  protected selectedStepForResult = signal<TestStep | null>(null);
+  protected resultDrawerVisible = signal(false);
+  protected savingResult = signal(false);
 
   readonly statusOptions = ['pending', 'pass', 'fail', 'n/a'];
 
@@ -775,7 +789,6 @@ export class TestVerificationTableComponent {
     this.editStepAction = step.action || '';
     this.editStepExpected = step.expectedResult || '';
     this.editStepData = step.dataToRecord || '';
-    this.editStepActual = step.actualResult || '';
     this.editStepStatus = step.status || 'pending';
   }
 
@@ -793,7 +806,7 @@ export class TestVerificationTableComponent {
           action: this.editStepAction,
           expectedResult: this.editStepExpected,
           dataToRecord: this.editStepData,
-          actualResult: this.editStepActual,
+          actualResult: step.actualResult,
           status: this.editStepStatus,
           orderIndex: step.orderIndex,
         },
@@ -813,6 +826,38 @@ export class TestVerificationTableComponent {
         },
         error: () => this.saving.set(false),
       });
+  }
+
+  openResultDrawer(step: TestStep) {
+    this.selectedStepForResult.set(step);
+    this.resultDrawerVisible.set(true);
+  }
+
+  onSaveActualResult(event: { stepId: string; actualResult: string }) {
+    const step = this.selectedStepForResult();
+    if (!step) return;
+
+    this.savingResult.set(true);
+    const updatedStepPayload = {
+      ...step,
+      actualResult: event.actualResult,
+    };
+
+    this.testProtocolService.saveTestStep(updatedStepPayload, step.testVerificationId).subscribe({
+      next: (updated) => {
+        this.testStepsMap.update((prev) => {
+          const list = prev[updated.testVerificationId] || [];
+          return {
+            ...prev,
+            [updated.testVerificationId]: list.map((s) => (s.id === updated.id ? updated : s)),
+          };
+        });
+        this.selectedStepForResult.set(updated);
+        this.savingResult.set(false);
+        this.resultDrawerVisible.set(false);
+      },
+      error: () => this.savingResult.set(false),
+    });
   }
 
   deleteStep(step: TestStep) {
