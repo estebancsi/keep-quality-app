@@ -53,4 +53,43 @@ export class AttachmentUtilsService {
     await Promise.all(refreshPromises);
     return anyRefreshed;
   }
+
+  /**
+   * Refreshes expired attachment URLs and replaces their old occurrences in the provided HTML string.
+   *
+   * @param html The rich text HTML containing image tags.
+   * @param attachments The attachments array to verified and mutated.
+   * @returns An object containing the updated HTML string and a boolean indicating if any refresh occurred.
+   */
+  async refreshHtmlAttachments(
+    html: string,
+    attachments: AttachmentCache[],
+  ): Promise<{ html: string; refreshed: boolean }> {
+    if (!attachments || attachments.length === 0 || !html) {
+      return { html, refreshed: false };
+    }
+
+    // Clone the attachments array so we can compare old vs new URLs
+    const oldUrls = attachments.map((a) => ({ objectName: a.objectName, oldUrl: a.publicUrl }));
+
+    const didRefresh = await this.ensureAttachmentsFresh(attachments);
+
+    if (didRefresh) {
+      let updatedHtml = html;
+      // Replace the old URL with the new URL for each updated attachment
+      for (let i = 0; i < attachments.length; i++) {
+        const oldUrl = oldUrls[i].oldUrl;
+        const newUrl = attachments[i].publicUrl;
+
+        if (oldUrl !== newUrl) {
+          // Simple string replacement. In case a URL appears multiple times, replace all.
+          // Split and join is safer than global RegExp for URLs which contain special regex chars.
+          updatedHtml = updatedHtml.split(oldUrl).join(newUrl);
+        }
+      }
+      return { html: updatedHtml, refreshed: true };
+    }
+
+    return { html, refreshed: false };
+  }
 }
