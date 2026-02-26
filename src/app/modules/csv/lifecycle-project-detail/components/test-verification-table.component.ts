@@ -95,18 +95,19 @@ import { TestResultDrawerComponent } from './test-result-drawer.component';
         [expandedRowKeys]="expandedRows()"
         (onRowExpand)="onRowExpand($event)"
         styleClass="p-datatable-sm"
+        [tableStyle]="{ 'table-layout': 'fixed', 'min-width': '75rem' }"
         (onRowReorder)="onVerificationReorder()"
       >
         <ng-template #header>
           <tr>
             <th style="width: 3rem"></th>
             <th style="width: 3rem"></th>
-            <th style="width: 10rem">Reference</th>
-            <th>Objective</th>
-            <th>Acceptance Criteria</th>
+            <th style="width: 5rem">Reference</th>
+            <th style="width: 15rem">Objective</th>
+            <th style="width: 15rem">Acceptance Criteria</th>
             <th style="width: 15rem">Traceability</th>
-            <th style="width: 10rem">Status</th>
-            <th style="width: 8rem">Actions</th>
+            <th style="width: 8rem">Status</th>
+            <th style="width: 6rem">Actions</th>
           </tr>
         </ng-template>
 
@@ -209,8 +210,16 @@ import { TestResultDrawerComponent } from './test-result-drawer.component';
               </td>
             } @else {
               <td class="font-mono font-semibold">{{ ver.reference }}</td>
-              <td>{{ ver.objective }}</td>
-              <td>{{ ver.acceptanceCriteria }}</td>
+              <td>
+                <div class="wrap-break-word whitespace-pre-wrap overflow-hidden">
+                  {{ ver.objective }}
+                </div>
+              </td>
+              <td>
+                <div class="wrap-break-word whitespace-pre-wrap overflow-hidden">
+                  {{ ver.acceptanceCriteria }}
+                </div>
+              </td>
               <td>
                 <div class="flex flex-wrap gap-1">
                   @for (id of ver.traceUrsIds; track id) {
@@ -274,16 +283,17 @@ import { TestResultDrawerComponent } from './test-result-drawer.component';
                   [value]="testStepsMap()[ver.id] || []"
                   dataKey="id"
                   styleClass="p-datatable-sm"
+                  [tableStyle]="{ 'table-layout': 'fixed', 'min-width': '65rem' }"
                   (onRowReorder)="onStepReorder($event, ver)"
                 >
                   <ng-template #header>
                     <tr>
                       <th style="width: 3rem"></th>
                       <th style="width: 5rem">Step</th>
-                      <th style="width: 15rem">Action</th>
-                      <th style="width: 15rem">Expected Result</th>
-                      <th>Data</th>
-                      <th style="width: 8rem">Status</th>
+                      <th style="width: 20rem">Action</th>
+                      <th style="width: 20rem">Expected Result</th>
+                      <th style="width: 10rem">Data</th>
+                      <th style="width: 7rem">Status</th>
                       <th style="width: 7rem">Actions</th>
                     </tr>
                   </ng-template>
@@ -354,8 +364,16 @@ import { TestResultDrawerComponent } from './test-result-drawer.component';
                         </td>
                       } @else {
                         <td class="font-mono">{{ step.stepNumber }}</td>
-                        <td class="whitespace-pre-wrap">{{ step.action }}</td>
-                        <td class="whitespace-pre-wrap">{{ step.expectedResult }}</td>
+                        <td>
+                          <div class="wrap-break-word whitespace-pre-wrap overflow-hidden">
+                            {{ step.action }}
+                          </div>
+                        </td>
+                        <td>
+                          <div class="wrap-break-word whitespace-pre-wrap overflow-hidden">
+                            {{ step.expectedResult }}
+                          </div>
+                        </td>
                         <td>
                           <div class="flex flex-col gap-2 items-start justify-center h-full">
                             @if (step.dataToRecord) {

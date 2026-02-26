@@ -117,6 +117,7 @@ import { switchMap } from 'rxjs';
         [loading]="loading()"
         dataKey="id"
         styleClass="p-datatable-sm"
+        [tableStyle]="{ 'table-layout': 'fixed', 'min-width': '60rem' }"
         rowGroupMode="subheader"
         groupRowsBy="groupName"
         sortField="position"
@@ -128,7 +129,7 @@ import { switchMap } from 'rxjs';
             <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
             <th style="width: 5rem">Code</th>
             <th style="width: 10rem">Category</th>
-            <th>Description</th>
+            <th style="max-width: 40rem">Description</th>
             <th style="width: 12rem">Group</th>
             <th style="width: 8rem">Actions</th>
           </tr>
@@ -231,7 +232,10 @@ import { switchMap } from 'rxjs';
                   [attr.aria-label]="'Edit requirement URS-' + req.code"
                 >
                   @if (req.description) {
-                    <div [innerHTML]="req.description"></div>
+                    <div
+                      class="wrap-break-word whitespace-pre-wrap overflow-hidden"
+                      [innerHTML]="req.description"
+                    ></div>
                   } @else {
                     <span class="text-surface-400 italic">Click to add description…</span>
                   }

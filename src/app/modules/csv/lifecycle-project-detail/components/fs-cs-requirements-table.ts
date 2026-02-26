@@ -121,6 +121,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         [loading]="loading()"
         dataKey="id"
         styleClass="p-datatable-sm"
+        [tableStyle]="{ 'table-layout': 'fixed', 'min-width': '60rem' }"
         rowGroupMode="subheader"
         groupRowsBy="groupName"
         sortField="position"
@@ -132,7 +133,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
             <th style="width: 6rem">Code</th>
             <th style="width: 10rem">Group</th>
-            <th>Description & Traceability</th>
+            <th style="width: 40rem">Description & Traceability</th>
             <th style="width: 6rem">Actions</th>
           </tr>
         </ng-template>
@@ -251,7 +252,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                 >
                   <!-- Description -->
                   @if (req.description) {
-                    <div [innerHTML]="req.description"></div>
+                    <div
+                      class="wrap-break-word whitespace-pre-wrap overflow-hidden"
+                      [innerHTML]="req.description"
+                    ></div>
                   } @else {
                     <span class="text-surface-400 italic">Click to add description…</span>
                   }

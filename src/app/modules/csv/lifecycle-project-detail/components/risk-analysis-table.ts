@@ -152,6 +152,7 @@ interface GeneratedRiskItem {
         [loading]="loading()"
         dataKey="id"
         styleClass="p-datatable-sm"
+        [tableStyle]="{ 'table-layout': 'fixed', 'min-width': '100rem' }"
         sortField="position"
         sortMode="single"
       >
@@ -160,7 +161,7 @@ interface GeneratedRiskItem {
             <th style="width: 3rem" aria-label="Drag handle"></th>
             <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
             <th style="width: 5rem">Code</th>
-            <th style="width: 6rem">Traceability</th>
+            <th style="width: 8rem">Traceability</th>
             <th style="min-width: 20rem">Failure Mode / Cause / Effect</th>
             <th style="width: 8rem" pTooltip="Severity (1=Low, 3=High)">Severity</th>
             <th style="width: 8rem" pTooltip="Probability (1=Low, 3=High)">Probability</th>
@@ -169,7 +170,7 @@ interface GeneratedRiskItem {
             </th>
             <th style="width: 5rem" pTooltip="Risk Class (1=High, 3=Low)">Class</th>
             <th style="width: 6rem" pTooltip="Risk Priority">Priority</th>
-            <th style="width: 15rem">Mitigation</th>
+            <th style="width: 20rem">Mitigation</th>
             <th style="width: 5rem">Actions</th>
           </tr>
         </ng-template>
@@ -205,7 +206,7 @@ interface GeneratedRiskItem {
                       optionLabel="code"
                       optionValue="value"
                       placeholder="Select FS/CS/DS"
-                      [style]="{ width: '100%', minWidth: '10rem' }"
+                      [style]="{ width: '100%', minWidth: '5rem' }"
                       appendTo="body"
                       display="chip"
                     >
@@ -230,7 +231,7 @@ interface GeneratedRiskItem {
                       optionLabel="code"
                       optionValue="value"
                       placeholder="Select URS"
-                      [style]="{ width: '100%', minWidth: '10rem' }"
+                      [style]="{ width: '100%', minWidth: '5rem' }"
                       appendTo="body"
                       display="chip"
                     >
@@ -311,22 +312,22 @@ interface GeneratedRiskItem {
                 </div>
               } @else {
                 <div
-                  class="cursor-pointer min-h-16 p-1 rounded hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors flex flex-col gap-1"
+                  class="cursor-pointer min-h-16 p-1 rounded hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors flex flex-col gap-1 overflow-hidden"
                   (click)="startEdit(item)"
                   (keydown.enter)="startEdit(item)"
                   tabindex="0"
                   role="button"
                 >
-                  <div class="text-sm">
-                    <span class="font-semibold text-surface-500 text-xs">FM:</span>
+                  <div class="text-sm wrap-break-word">
+                    <span class="font-semibold text-surface-500 text-xs text-nowrap">FM:</span>
                     {{ item.failureMode || '-' }}
                   </div>
-                  <div class="text-sm">
-                    <span class="font-semibold text-surface-500 text-xs">C:</span>
+                  <div class="text-sm wrap-break-word">
+                    <span class="font-semibold text-surface-500 text-xs text-nowrap">C:</span>
                     {{ item.cause || '-' }}
                   </div>
-                  <div class="text-sm">
-                    <span class="font-semibold text-surface-500 text-xs">E:</span>
+                  <div class="text-sm wrap-break-word">
+                    <span class="font-semibold text-surface-500 text-xs text-nowrap">E:</span>
                     {{ item.effect || '-' }}
                   </div>
                 </div>
@@ -484,14 +485,16 @@ interface GeneratedRiskItem {
                 </div>
               } @else {
                 <div
-                  class="cursor-pointer min-h-16 p-1 rounded hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                  class="cursor-pointer min-h-16 p-1 rounded hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors overflow-hidden"
                   (click)="startEdit(item)"
                   (keydown.enter)="startEdit(item)"
                   tabindex="0"
                   role="button"
                 >
                   @if (item.mitigation) {
-                    <div class="mb-2 text-sm">{{ item.mitigation }}</div>
+                    <div class="mb-2 text-sm wrap-break-word whitespace-pre-wrap">
+                      {{ item.mitigation }}
+                    </div>
                   } @else {
                     <div class="text-surface-400 italic text-xs mb-2">No mitigation defined</div>
                   }
@@ -671,7 +674,7 @@ interface GeneratedRiskItem {
             [text]="true"
             (click)="bulkSeverity = null; bulkProbability = null; bulkDetectability = null"
           />
-          <div class="flex-grow"></div>
+          <div class="grow"></div>
           <p-button
             label="Cancel"
             icon="pi pi-times"
