@@ -82,9 +82,15 @@ export class AttachmentUtilsService {
         const newUrl = attachments[i].publicUrl;
 
         if (oldUrl !== newUrl) {
-          // Simple string replacement. In case a URL appears multiple times, replace all.
-          // Split and join is safer than global RegExp for URLs which contain special regex chars.
+          // Replace exact match
           updatedHtml = updatedHtml.split(oldUrl).join(newUrl);
+
+          // Replace HTML encoded match (e.g. & becoming &amp; inside innerHTML)
+          const encodedOldUrl = oldUrl.replace(/&/g, '&amp;');
+          if (encodedOldUrl !== oldUrl) {
+            const encodedNewUrl = newUrl.replace(/&/g, '&amp;');
+            updatedHtml = updatedHtml.split(encodedOldUrl).join(encodedNewUrl);
+          }
         }
       }
       return { html: updatedHtml, refreshed: true };

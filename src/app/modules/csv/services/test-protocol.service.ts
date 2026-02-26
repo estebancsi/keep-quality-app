@@ -217,6 +217,12 @@ export class TestProtocolService {
         actual_result: step.actualResult ?? '',
         status: step.status ?? 'pending',
         order_index: order,
+        attachment_urls:
+          step.attachmentUrls?.map((a) => ({
+            object_name: a.objectName,
+            public_url: a.publicUrl,
+            expires_at: a.expiresAt,
+          })) ?? null,
         ...(this.orgService.activeOrganizationId() && {
           tenant_id: this.orgService.activeOrganizationId(),
         }),
@@ -304,6 +310,12 @@ export class TestProtocolService {
       actualResult: dto.actual_result,
       status: dto.status as TestPassFailStatus,
       orderIndex: dto.order_index,
+      attachmentUrls:
+        dto.attachment_urls?.map((a) => ({
+          objectName: a.object_name,
+          publicUrl: a.public_url,
+          expiresAt: a.expires_at,
+        })) ?? [],
       createdAt: dto.created_at,
       updatedAt: dto.updated_at,
     };

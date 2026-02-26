@@ -37,6 +37,7 @@ import { AiActionButtonComponent } from '@/shared/components/ai-action-button/ai
 import { forkJoin, of, catchError, switchMap, combineLatest } from 'rxjs';
 import { Textarea } from 'primeng/textarea';
 import { TestResultDrawerComponent } from './test-result-drawer.component';
+import { AttachmentCache } from '@/core/interfaces/attachment.interface';
 
 @Component({
   selector: 'app-test-verification-table',
@@ -851,7 +852,11 @@ export class TestVerificationTableComponent {
     this.resultDrawerVisible.set(true);
   }
 
-  onSaveActualResult(event: { stepId: string; actualResult: string }) {
+  onSaveActualResult(event: {
+    stepId: string;
+    actualResult: string;
+    attachmentUrls: AttachmentCache[];
+  }) {
     const step = this.selectedStepForResult();
     if (!step) return;
 
@@ -859,6 +864,7 @@ export class TestVerificationTableComponent {
     const updatedStepPayload = {
       ...step,
       actualResult: event.actualResult,
+      attachmentUrls: event.attachmentUrls,
     };
 
     this.testProtocolService.saveTestStep(updatedStepPayload, step.testVerificationId).subscribe({

@@ -223,17 +223,10 @@ export class RichTextEditorComponent implements ControlValueAccessor {
    * Call this when the parent component saves the content.
    */
   async cleanupDeletedImages(): Promise<AttachmentCache[]> {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = this.content();
-    const imagesInHtml = Array.from(tempDiv.querySelectorAll('img'));
-    const urlsInHtml = imagesInHtml
-      .map((img) => img.getAttribute('src'))
-      .filter((src): src is string => !!src);
-
+    const html = this.content() || '';
     const currentAttachments = this.attachments();
-    const deletedAttachments = currentAttachments.filter(
-      (att) => !urlsInHtml.includes(att.publicUrl),
-    );
+
+    const deletedAttachments = currentAttachments.filter((att) => !html.includes(att.objectName));
 
     for (const att of deletedAttachments) {
       try {
@@ -243,9 +236,7 @@ export class RichTextEditorComponent implements ControlValueAccessor {
       }
     }
 
-    const updatedAttachments = currentAttachments.filter((att) =>
-      urlsInHtml.includes(att.publicUrl),
-    );
+    const updatedAttachments = currentAttachments.filter((att) => html.includes(att.objectName));
 
     this.attachments.set(updatedAttachments);
     return updatedAttachments;

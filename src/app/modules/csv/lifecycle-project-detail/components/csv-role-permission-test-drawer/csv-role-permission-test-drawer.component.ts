@@ -113,9 +113,8 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
             </div>
 
             <p class="text-xs text-surface-500 mb-2">
-              Exception-based reporting: Upload images ONLY if there is a complex visual result,
-              abnormal condition, or test failure. If the test passes straightforwardly, just select
-              'Pass' and save.
+              Evidence-based reporting: Upload images or screenshots to document the test result and
+              support the outcome.
             </p>
 
             @if (editMode()) {
