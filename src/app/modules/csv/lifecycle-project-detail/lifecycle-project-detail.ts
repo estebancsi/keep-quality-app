@@ -38,6 +38,7 @@ import { ValidationPlanArtifact } from '../validation-plan.interface';
 import { TestVerificationTableComponent } from './components/test-verification-table.component';
 import { TestProtocolService } from '../services/test-protocol.service';
 import { TestProtocol, TestPhase } from '../test-protocol.interface';
+import { CsvRolesPermissionsWrapperComponent } from './roles-permissions-wrapper/roles-permissions-wrapper.component';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -53,6 +54,7 @@ import { TestProtocol, TestPhase } from '../test-protocol.interface';
     CustomFieldsRendererComponent,
     ArtifactImportDialogComponent,
     TestVerificationTableComponent,
+    CsvRolesPermissionsWrapperComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -152,6 +154,10 @@ import { TestProtocol, TestPhase } from '../test-protocol.interface';
                   {{ phase | uppercase }} Protocol
                 </p-tab>
               }
+              <p-tab value="roles-permissions">
+                <i class="pi pi-key mr-2"></i>
+                Roles & Permissions
+              </p-tab>
             </p-tablist>
             <p-tabpanels>
               <p-tabpanel value="0">
@@ -318,6 +324,12 @@ import { TestProtocol, TestPhase } from '../test-protocol.interface';
                   <app-test-verification-table [lifecycleProjectId]="p.id" [phase]="phase" />
                 </p-tabpanel>
               }
+
+              <p-tabpanel value="roles-permissions">
+                <div class="mt-4">
+                  <app-csv-roles-permissions-wrapper [projectId]="p.id" />
+                </div>
+              </p-tabpanel>
 
               @if (showFsCsTab()) {
                 <p-tabpanel value="fs-cs">
