@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -8,14 +8,14 @@ import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { ConfirmationService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { rxResource } from '@angular/core/rxjs-interop';
+import { catchError, of } from 'rxjs';
 import { SystemPromptsService } from '@/core/services/system-prompts.service';
 import { SystemPrompt } from '@/core/interfaces/system-prompts.types';
 import { SystemPromptFormComponent } from '../../components/system-prompt-form/system-prompt-form.component';
 
 @Component({
   selector: 'app-system-prompts-list',
-  standalone: true,
   imports: [
     CommonModule,
     TableModule,
@@ -33,28 +33,16 @@ export class SystemPromptsListComponent {
   private systemPromptsService = inject(SystemPromptsService);
   private dialogService = inject(DialogService);
   private confirmationService = inject(ConfirmationService);
+  // Use rxResource for modern data fetching and easy reloading
+  private promptsResource = rxResource({
+    stream: () => this.systemPromptsService.getAllPrompts().pipe(catchError(() => of([]))),
+  });
 
-  // Use a signal for refresh trigger
-  private refreshTrigger = signal(0);
-
-  // Prompts derived from service call + refresh trigger
-  prompts = toSignal(this.systemPromptsService.getAllPrompts(), { initialValue: [] });
-
-  // Methods to handle manual refresh if needed, but toSignal handles initial subscription
-  // To truly refresh on signal change, we need to switchMap or similar,
-  // but toSignal with just service call is static.
-  // Better approach: use a resource or just manually load into a signal.
-
-  promptsList = signal<SystemPrompt[]>([]);
-
-  constructor() {
-    this.loadPrompts();
-  }
+  // Derived signal for the table
+  prompts = computed(() => this.promptsResource.value() ?? []);
 
   loadPrompts() {
-    this.systemPromptsService.getAllPrompts().subscribe((data) => {
-      this.promptsList.set(data);
-    });
+    this.promptsResource.reload();
   }
 
   ref: DynamicDialogRef<SystemPromptFormComponent> | null = null;

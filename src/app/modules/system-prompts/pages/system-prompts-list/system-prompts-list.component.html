@@ -1,7 +1,16 @@
 <div class="card">
   <div class="flex justify-between items-center mb-4">
     <h1 class="text-2xl font-bold m-0">System Prompts</h1>
-    <p-button label="Create Prompt" icon="pi pi-plus" (onClick)="openCreateDialog()"></p-button>
+    <div class="flex gap-2">
+      <p-button
+        icon="pi pi-refresh"
+        (onClick)="loadPrompts()"
+        severity="secondary"
+        [text]="true"
+        pTooltip="Refresh List"
+      ></p-button>
+      <p-button label="Create Prompt" icon="pi pi-plus" (onClick)="openCreateDialog()"></p-button>
+    </div>
   </div>
 
   <p-table

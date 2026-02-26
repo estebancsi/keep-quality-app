@@ -24,7 +24,6 @@ import {
 
 @Component({
   selector: 'app-system-prompt-form',
-  standalone: true,
   imports: [
     CommonModule,
     ReactiveFormsModule,
