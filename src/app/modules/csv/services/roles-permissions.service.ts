@@ -85,7 +85,7 @@ export class RolesPermissionsService {
   getPermissionsByProjectId(projectId: string): Observable<CsvPermission[]> {
     return defer(async () =>
       this.supabase
-        .from('csv_project_permissions')
+        .from('csv_project_perms')
         .select('*')
         .eq('lifecycle_project_id', projectId)
         .order('name', { ascending: true }),
@@ -104,7 +104,7 @@ export class RolesPermissionsService {
     const { id, created_at, updated_at, ...payload } = dto;
 
     return defer(async () =>
-      this.supabase.from('csv_project_permissions').insert(payload).select('*').single(),
+      this.supabase.from('csv_project_perms').insert(payload).select('*').single(),
     ).pipe(
       map(({ data, error }) => {
         if (error) throw error;
@@ -119,12 +119,7 @@ export class RolesPermissionsService {
     const { id: _id, tenant_id, created_at, updated_at, ...payload } = dto;
 
     return defer(async () =>
-      this.supabase
-        .from('csv_project_permissions')
-        .update(payload)
-        .eq('id', id)
-        .select('*')
-        .single(),
+      this.supabase.from('csv_project_perms').update(payload).eq('id', id).select('*').single(),
     ).pipe(
       map(({ data, error }) => {
         if (error) throw error;
@@ -135,9 +130,7 @@ export class RolesPermissionsService {
   }
 
   deletePermission(id: string): Observable<void> {
-    return defer(async () =>
-      this.supabase.from('csv_project_permissions').delete().eq('id', id),
-    ).pipe(
+    return defer(async () => this.supabase.from('csv_project_perms').delete().eq('id', id)).pipe(
       map(({ error }) => {
         if (error) throw error;
       }),
@@ -150,7 +143,7 @@ export class RolesPermissionsService {
   getMappingsByProjectId(projectId: string): Observable<CsvRolePermissionMapping[]> {
     return defer(async () =>
       this.supabase
-        .from('csv_project_role_permissions')
+        .from('csv_project_role_perms')
         .select('*')
         .eq('lifecycle_project_id', projectId),
     ).pipe(
@@ -169,7 +162,7 @@ export class RolesPermissionsService {
 
     return defer(async () =>
       this.supabase
-        .from('csv_project_role_permissions')
+        .from('csv_project_role_perms')
         .upsert(
           { ...payload, lifecycle_project_id: mapping.lifecycleProjectId },
           { onConflict: 'role_id, permission_id' },
@@ -190,7 +183,7 @@ export class RolesPermissionsService {
   getTestResultsByProjectId(projectId: string): Observable<CsvRolePermissionTestResult[]> {
     return defer(async () =>
       this.supabase
-        .from('csv_project_role_permission_test_results')
+        .from('csv_project_role_perm_test_results')
         .select('*')
         .eq('lifecycle_project_id', projectId),
     ).pipe(
@@ -213,7 +206,7 @@ export class RolesPermissionsService {
 
     return defer(async () =>
       this.supabase
-        .from('csv_project_role_permission_test_results')
+        .from('csv_project_role_perm_test_results')
         .upsert(payload, { onConflict: 'mapping_id' })
         .select('*')
         .single(),
