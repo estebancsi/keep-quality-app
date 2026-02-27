@@ -167,7 +167,13 @@ export class CsvRolePermissionTestingComponent {
   readonly selectedMapping = signal<CsvRolePermissionMapping | null>(null);
   readonly selectedRole = signal<CsvRole | null>(null);
   readonly selectedPermission = signal<CsvPermission | null>(null);
-  readonly selectedTestResult = signal<CsvRolePermissionTestResult | null>(null);
+
+  // Derive selected test result dynamically so it updates when a save completes and testResults is updated
+  readonly selectedTestResult = computed(() => {
+    const mapping = this.selectedMapping();
+    if (!mapping) return null;
+    return this.testResults().find((tr) => tr.mappingId === mapping.id) || null;
+  });
 
   // Derive mapped rows for the table
   readonly mappedRows = computed(() => {
@@ -215,7 +221,6 @@ export class CsvRolePermissionTestingComponent {
     this.selectedMapping.set(row.mapping);
     this.selectedRole.set(row.role);
     this.selectedPermission.set(row.permission);
-    this.selectedTestResult.set(row.testResult || null);
 
     this.drawerVisible.set(true);
   }

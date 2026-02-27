@@ -90,6 +90,7 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
               <p-select
                 [options]="statusOptions"
                 [(ngModel)]="currentStatus"
+                (ngModelChange)="onStatusChange()"
                 placeholder="Select Status"
                 styleClass="w-[150px] p-select-sm"
               >
@@ -133,7 +134,7 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
                   icon="pi pi-check"
                   size="small"
                   (click)="saveEdit()"
-                  [loading]="saving()"
+                  [loading]="saving() || internalSaving()"
                 />
                 <p-button
                   label="Cancel"
@@ -203,6 +204,7 @@ export class CsvRolePermissionTestDrawerComponent {
   readonly statusOptions = ['Pending', 'Pass', 'Fail'];
 
   protected readonly editMode = signal(false);
+  protected readonly internalSaving = signal(false);
   protected editActualResult = '';
   protected currentAttachmentUrls = signal<AttachmentCache[]>([]);
   protected currentStatus: 'Pass' | 'Fail' | 'Pending' = 'Pending';
@@ -261,20 +263,39 @@ export class CsvRolePermissionTestDrawerComponent {
     }
   }
 
+  onStatusChange() {
+    if (!this.editMode()) {
+      const m = this.mapping();
+      if (m) {
+        this.save.emit({
+          mappingId: m.id,
+          actualResult: this.testResult()?.actualResult || '',
+          attachmentUrls: this.testResult()?.attachmentUrls || [],
+          status: this.currentStatus,
+        });
+      }
+    }
+  }
+
   async saveEdit() {
     const m = this.mapping();
     if (m) {
-      if (this.editor()) {
-        const updatedAttachments = await this.editor()!.cleanupDeletedImages();
-        this.currentAttachmentUrls.set(updatedAttachments);
-      }
+      this.internalSaving.set(true);
+      try {
+        if (this.editor()) {
+          const updatedAttachments = await this.editor()!.cleanupDeletedImages();
+          this.currentAttachmentUrls.set(updatedAttachments);
+        }
 
-      this.save.emit({
-        mappingId: m.id,
-        actualResult: this.editActualResult,
-        attachmentUrls: this.currentAttachmentUrls(),
-        status: this.currentStatus,
-      });
+        this.save.emit({
+          mappingId: m.id,
+          actualResult: this.editActualResult,
+          attachmentUrls: this.currentAttachmentUrls(),
+          status: this.currentStatus,
+        });
+      } finally {
+        this.internalSaving.set(false);
+      }
     }
   }
 
