@@ -13,6 +13,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DrawerModule } from 'primeng/drawer';
 import { ButtonModule } from 'primeng/button';
+import { SelectModule } from 'primeng/select';
 import { TestStep } from '../../test-protocol.interface';
 import { AttachmentUtilsService } from '@/core/utils/attachment.utils';
 import { AttachmentCache } from '@/core/interfaces/attachment.interface';
@@ -28,6 +29,7 @@ import { RichTextViewerComponent } from '@/shared/components/rich-text-viewer/ri
     RichTextEditorComponent,
     RichTextViewerComponent,
     ButtonModule,
+    SelectModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
@@ -69,7 +71,39 @@ import { RichTextViewerComponent } from '@/shared/components/rich-text-viewer/ri
           }
 
           <div class="flex flex-col gap-2 flex-1 mt-4">
-            <div class="font-semibold text-sm">Actual Result</div>
+            <div class="font-semibold text-sm flex justify-between items-center">
+              <span>Actual Result / Evidence</span>
+              <p-select
+                [options]="statusOptions"
+                [(ngModel)]="currentStatus"
+                (ngModelChange)="onStatusChange()"
+                placeholder="Select Status"
+                styleClass="w-[150px] p-select-sm"
+              >
+                <ng-template #selectedItem let-option>
+                  <div
+                    class="flex items-center gap-2 font-medium"
+                    [ngClass]="getStatusColor(option)"
+                  >
+                    <span>{{ option | titlecase }}</span>
+                  </div>
+                </ng-template>
+                <ng-template #item let-option>
+                  <div
+                    class="flex items-center gap-2 font-medium"
+                    [ngClass]="getStatusColor(option)"
+                  >
+                    <span>{{ option | titlecase }}</span>
+                  </div>
+                </ng-template>
+              </p-select>
+            </div>
+
+            <p class="text-xs text-surface-500 mb-2">
+              Evidence-based reporting: Upload images or screenshots to document the test result and
+              support the outcome.
+            </p>
+
             @if (editMode()) {
               <app-rich-text-editor
                 #editor
@@ -84,7 +118,7 @@ import { RichTextViewerComponent } from '@/shared/components/rich-text-viewer/ri
                   icon="pi pi-check"
                   size="small"
                   (click)="saveEdit()"
-                  [loading]="saving()"
+                  [loading]="saving() || internalSaving()"
                 />
                 <p-button
                   label="Cancel"
@@ -145,11 +179,16 @@ export class TestResultDrawerComponent {
     stepId: string;
     actualResult: string;
     attachmentUrls: AttachmentCache[];
+    status: 'pending' | 'pass' | 'fail' | 'n/a';
   }>();
 
+  readonly statusOptions = ['pending', 'pass', 'fail', 'n/a'];
+
   protected readonly editMode = signal(false);
+  protected readonly internalSaving = signal(false);
   protected editActualResult = '';
   protected currentAttachmentUrls = signal<AttachmentCache[]>([]);
+  protected currentStatus: 'pending' | 'pass' | 'fail' | 'n/a' = 'pending';
 
   private attachmentUtils = inject(AttachmentUtilsService);
 
@@ -164,6 +203,7 @@ export class TestResultDrawerComponent {
       if (isVisible && currentStep) {
         // Prepare attachments
         this.currentAttachmentUrls.set([...(currentStep.attachmentUrls || [])]);
+        this.currentStatus = (currentStep.status as any) || 'pending';
 
         if (!currentStep.actualResult) {
           this.startEdit();
@@ -180,6 +220,33 @@ export class TestResultDrawerComponent {
     return parts[parts.length - 1];
   }
 
+  getStatusColor(status: string): string {
+    switch (status) {
+      case 'pass':
+        return 'text-green-600 dark:text-green-400';
+      case 'fail':
+        return 'text-red-600 dark:text-red-400';
+      case 'n/a':
+        return 'text-blue-600 dark:text-blue-400';
+      default:
+        return 'text-surface-600 dark:text-surface-400';
+    }
+  }
+
+  onStatusChange() {
+    if (!this.editMode()) {
+      const s = this.step();
+      if (s) {
+        this.save.emit({
+          stepId: s.id,
+          actualResult: this.editActualResult,
+          attachmentUrls: this.currentAttachmentUrls(),
+          status: this.currentStatus,
+        });
+      }
+    }
+  }
+
   startEdit() {
     this.editActualResult = this.step()?.actualResult || '';
     this.currentAttachmentUrls.set([...(this.step()?.attachmentUrls || [])]);
@@ -193,16 +260,22 @@ export class TestResultDrawerComponent {
   async saveEdit() {
     const s = this.step();
     if (s) {
-      if (this.editor()) {
-        const updatedAttachments = await this.editor()!.cleanupDeletedImages();
-        this.currentAttachmentUrls.set(updatedAttachments);
-      }
+      this.internalSaving.set(true);
+      try {
+        if (this.editor()) {
+          const updatedAttachments = await this.editor()!.cleanupDeletedImages();
+          this.currentAttachmentUrls.set(updatedAttachments);
+        }
 
-      this.save.emit({
-        stepId: s.id,
-        actualResult: this.editActualResult,
-        attachmentUrls: this.currentAttachmentUrls(),
-      });
+        this.save.emit({
+          stepId: s.id,
+          actualResult: this.editActualResult,
+          attachmentUrls: this.currentAttachmentUrls(),
+          status: this.currentStatus,
+        });
+      } finally {
+        this.internalSaving.set(false);
+      }
     }
   }
 

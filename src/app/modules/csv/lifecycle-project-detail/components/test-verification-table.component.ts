@@ -339,11 +339,9 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
                           </div>
                         </td>
                         <td>
-                          <p-select
-                            [options]="statusOptions"
-                            [(ngModel)]="editStepStatus"
-                            [style]="{ width: '100%' }"
-                            appendTo="body"
+                          <p-tag
+                            [value]="step.status"
+                            [severity]="getStatusSeverity(step.status)"
                           />
                         </td>
                         <td>
@@ -498,7 +496,6 @@ export class TestVerificationTableComponent {
   protected editStepAction = '';
   protected editStepExpected = '';
   protected editStepData = '';
-  protected editStepStatus: TestPassFailStatus = 'pending';
 
   // Drawer state
   protected selectedStepForResult = signal<TestStep | null>(null);
@@ -808,7 +805,6 @@ export class TestVerificationTableComponent {
     this.editStepAction = step.action || '';
     this.editStepExpected = step.expectedResult || '';
     this.editStepData = step.dataToRecord || '';
-    this.editStepStatus = step.status || 'pending';
   }
 
   cancelStepEdit() {
@@ -826,7 +822,8 @@ export class TestVerificationTableComponent {
           expectedResult: this.editStepExpected,
           dataToRecord: this.editStepData,
           actualResult: step.actualResult,
-          status: this.editStepStatus,
+          attachmentUrls: step.attachmentUrls,
+          status: step.status,
           orderIndex: step.orderIndex,
         },
         step.testVerificationId,
@@ -856,6 +853,7 @@ export class TestVerificationTableComponent {
     stepId: string;
     actualResult: string;
     attachmentUrls: AttachmentCache[];
+    status: 'pending' | 'pass' | 'fail' | 'n/a';
   }) {
     const step = this.selectedStepForResult();
     if (!step) return;
@@ -865,6 +863,7 @@ export class TestVerificationTableComponent {
       ...step,
       actualResult: event.actualResult,
       attachmentUrls: event.attachmentUrls,
+      status: event.status,
     };
 
     this.testProtocolService.saveTestStep(updatedStepPayload, step.testVerificationId).subscribe({
