@@ -166,6 +166,39 @@ export class TestProtocolService {
     );
   }
 
+  deleteVerifications(verificationIds: string[]): Observable<void> {
+    return defer(async () =>
+      this.supabase.from('csv_test_verifications').delete().in('id', verificationIds),
+    ).pipe(
+      map(({ error }) => {
+        if (error) throw error;
+      }),
+      catchError((error) => this.handleError(error, 'Bulk Delete Test Verifications')),
+    );
+  }
+
+  bulkUpdateVerifications(
+    verificationIds: string[],
+    updates: Partial<TestVerification>,
+  ): Observable<void> {
+    return defer(async () => {
+      const payload: any = {};
+      if (updates.status !== undefined) payload.status = updates.status;
+      if (updates.traceUrsIds !== undefined) payload.trace_urs_ids = updates.traceUrsIds;
+      if (updates.traceFsCsIds !== undefined) payload.trace_fs_cs_ids = updates.traceFsCsIds;
+      if (updates.traceRiskIds !== undefined) payload.trace_risk_ids = updates.traceRiskIds;
+
+      if (Object.keys(payload).length === 0) return;
+
+      const { error } = await this.supabase
+        .from('csv_test_verifications')
+        .update(payload)
+        .in('id', verificationIds);
+
+      if (error) throw error;
+    }).pipe(catchError((error) => this.handleError(error, 'Bulk Update Test Verifications')));
+  }
+
   bulkSortVerifications(updates: { id: string; orderIndex: number }[]): Observable<void> {
     return defer(async () => {
       for (const update of updates) {

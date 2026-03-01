@@ -14,6 +14,7 @@ import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
 import { MultiSelectModule } from 'primeng/multiselect';
@@ -55,17 +56,26 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
     TagModule,
     AiActionButtonComponent,
     TestResultDrawerComponent,
+    DialogModule,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col gap-3">
       <!-- Toolbar -->
-      <div class="flex items-center justify-between mt-4 mb-3">
+      <div class="relative flex items-center justify-between mt-4 mb-3 h-10">
         <h3 class="text-lg font-semibold m-0">
           {{ phase() | uppercase }} Verifications / Test Scripts
         </h3>
-        <div class="flex items-center gap-2">
+        <!-- Default Actions -->
+        <div
+          class="flex items-center gap-2 absolute right-0 transition-all duration-300 ease-in-out"
+          [ngClass]="
+            selectedItems().length > 0
+              ? 'opacity-0 pointer-events-none translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
           <app-ai-action-button
             [action]="'csv.test-verifications:generate'"
             label="Generate Verifications"
@@ -86,11 +96,57 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
             [loading]="addingVerification()"
           />
         </div>
+
+        <!-- Bulk Actions Toolbar -->
+        <div
+          class="flex items-center gap-2 bg-primary-50 dark:bg-primary-900/20 px-3 py-1.5 rounded-lg border border-primary-200 dark:border-primary-800 shadow-sm absolute right-0 transition-all duration-300 ease-in-out z-10"
+          [ngClass]="
+            selectedItems().length === 0
+              ? 'opacity-0 pointer-events-none -translate-y-4'
+              : 'opacity-100 translate-y-0'
+          "
+        >
+          <span class="text-sm font-semibold text-primary-700 dark:text-primary-300 mr-2">
+            {{ selectedItems().length }} selected
+          </span>
+          <p-button
+            icon="pi pi-check-circle"
+            label="Status"
+            size="small"
+            [outlined]="true"
+            (click)="openBulkStatusDialog()"
+          />
+          <p-button
+            icon="pi pi-link"
+            label="Trace"
+            size="small"
+            [outlined]="true"
+            (click)="openBulkTraceDialog()"
+          />
+          <p-button
+            icon="pi pi-trash"
+            label="Delete"
+            severity="danger"
+            size="small"
+            [outlined]="true"
+            (click)="confirmBulkDelete()"
+          />
+          <p-button
+            icon="pi pi-times"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            (click)="selectedItems.set([])"
+            pTooltip="Clear selection"
+          />
+        </div>
       </div>
 
       <!-- Main Table for Verifications -->
       <p-table
         [value]="verifications()"
+        [selection]="selectedItems()"
+        (selectionChange)="selectedItems.set($event)"
         dataKey="id"
         [loading]="loading()"
         [expandedRowKeys]="expandedRows()"
@@ -102,6 +158,7 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
         <ng-template #header>
           <tr>
             <th style="width: 3rem"></th>
+            <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
             <th style="width: 3rem"></th>
             <th style="width: 5rem">Reference</th>
             <th style="width: 15rem">Objective</th>
@@ -115,9 +172,11 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
         <ng-template #body let-ver let-expanded="expanded" let-index="rowIndex">
           <tr
             [pReorderableRow]="index"
-            class="bg-white dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700"
+            [class.bg-primary-50]="selectedItems().includes(ver)"
+            class="bg-white dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700 transition-colors"
           >
             <td><span class="pi pi-bars cursor-move" pReorderableRowHandle></span></td>
+            <td><p-tableCheckbox [value]="ver" /></td>
             <td>
               <p-button
                 type="button"
@@ -265,7 +324,7 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
         <!-- Expanded Row for Test Steps -->
         <ng-template #expandedrow let-ver>
           <tr>
-            <td colspan="7">
+            <td colspan="9">
               <div
                 class="p-4 bg-surface-50 dark:bg-surface-900/50 rounded-lg border border-surface-200 dark:border-surface-700"
               >
@@ -439,7 +498,7 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
 
         <ng-template #emptymessage>
           <tr>
-            <td colspan="7" class="text-center py-8">
+            <td colspan="9" class="text-center py-8">
               <div class="flex flex-col items-center gap-2">
                 <i class="pi pi-verified text-4xl text-surface-400"></i>
                 <span class="text-surface-500">No {{ phase() | uppercase }} verifications yet</span>
@@ -456,6 +515,123 @@ import { AttachmentCache } from '@/core/interfaces/attachment.interface';
       [saving]="savingResult()"
       (save)="onSaveActualResult($event)"
     />
+
+    <!-- Bulk Status Dialog -->
+    <p-dialog
+      header="Bulk Update Status"
+      [(visible)]="bulkStatusDialogVisible"
+      [modal]="true"
+      [style]="{ width: '400px' }"
+    >
+      <div class="flex flex-col gap-4 py-4">
+        <p class="m-0 text-surface-600 dark:text-surface-400">
+          Updating status for {{ selectedItems().length }} selected verification(s).
+        </p>
+        <div class="flex flex-col gap-2">
+          <label for="bulk-status" class="font-semibold text-sm">Status</label>
+          <p-select
+            inputId="bulk-status"
+            [options]="statusOptions"
+            [(ngModel)]="bulkStatus"
+            [style]="{ width: '100%' }"
+            appendTo="body"
+          />
+        </div>
+      </div>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            (click)="bulkStatusDialogVisible = false"
+          />
+          <p-button
+            label="Apply"
+            icon="pi pi-check"
+            (click)="applyBulkStatus()"
+            [loading]="saving()"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Bulk Traceability Dialog -->
+    <p-dialog
+      header="Bulk Traceability"
+      [(visible)]="bulkTraceDialogVisible"
+      [modal]="true"
+      [style]="{ width: '400px' }"
+    >
+      <div class="flex flex-col gap-4 py-4">
+        <p class="m-0 text-surface-600 dark:text-surface-400">
+          Tracing {{ selectedItems().length }} selected verification(s).
+        </p>
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-sm">Select URS</label>
+            <p-multiSelect
+              [options]="ursOptions()"
+              [(ngModel)]="bulkTraceUrsIds"
+              placeholder="Select URS"
+              optionLabel="label"
+              optionValue="value"
+              appendTo="body"
+              styleClass="w-full"
+              display="chip"
+            />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-sm">Select FS/CS</label>
+            <p-multiSelect
+              [options]="fsCsOptions()"
+              [(ngModel)]="bulkTraceFsCsIds"
+              placeholder="Select FS/CS"
+              optionLabel="label"
+              optionValue="value"
+              appendTo="body"
+              styleClass="w-full"
+              display="chip"
+            />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-sm">Select Risk Items</label>
+            <p-multiSelect
+              [options]="riskOptions()"
+              [(ngModel)]="bulkTraceRiskIds"
+              placeholder="Select Risk"
+              optionLabel="label"
+              optionValue="value"
+              appendTo="body"
+              styleClass="w-full"
+              display="chip"
+            />
+          </div>
+          <small class="text-surface-500"
+            >This will replace any existing traceability on URS, FS/CS, and Risk items for the
+            selected verifications.</small
+          >
+        </div>
+      </div>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-end gap-2">
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            (click)="bulkTraceDialogVisible = false"
+          />
+          <p-button
+            label="Apply"
+            icon="pi pi-check"
+            (click)="applyBulkTrace()"
+            [loading]="saving()"
+          />
+        </div>
+      </ng-template>
+    </p-dialog>
 
     <p-confirmDialog [key]="'test-proto-dialog'" />
   `,
@@ -502,7 +678,16 @@ export class TestVerificationTableComponent {
   protected resultDrawerVisible = signal(false);
   protected savingResult = signal(false);
 
-  readonly statusOptions = ['pending', 'pass', 'fail', 'n/a'];
+  readonly statusOptions: TestPassFailStatus[] = ['pending', 'pass', 'fail', 'n/a'];
+
+  // Bulk State
+  protected readonly selectedItems = signal<TestVerification[]>([]);
+  protected bulkStatusDialogVisible = false;
+  protected bulkStatus: TestPassFailStatus = 'pending';
+  protected bulkTraceDialogVisible = false;
+  protected bulkTraceUrsIds: string[] = [];
+  protected bulkTraceFsCsIds: string[] = [];
+  protected bulkTraceRiskIds: string[] = [];
 
   // Traceability Lookups
   protected readonly ursOptions = signal<{ label: string; value: string }[]>([]);
@@ -758,6 +943,93 @@ export class TestVerificationTableComponent {
 
     this.verifications.set(reordered.map((v, index) => ({ ...v, orderIndex: index })));
     this.testProtocolService.bulkSortVerifications(updates).subscribe();
+  }
+
+  // --- Bulk Actions ---
+  protected confirmBulkDelete(): void {
+    const ids = this.selectedItems().map((v) => v.id);
+    if (!ids.length) return;
+
+    this.confirmationService.confirm({
+      key: 'test-proto-dialog',
+      message: `Are you sure you want to delete ${ids.length} selected verification(s)?`,
+      header: 'Confirm Bulk Deletion',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.testProtocolService.deleteVerifications(ids).subscribe({
+          next: () => {
+            this.verifications.update((prev) => prev.filter((v) => !ids.includes(v.id)));
+            this.selectedItems.set([]);
+          },
+        });
+      },
+    });
+  }
+
+  protected openBulkStatusDialog(): void {
+    if (this.selectedItems().length === 0) return;
+    this.bulkStatus = 'pending';
+    this.bulkStatusDialogVisible = true;
+  }
+
+  protected applyBulkStatus(): void {
+    const ids = this.selectedItems().map((v) => v.id);
+    if (!ids.length) return;
+
+    this.saving.set(true);
+    this.testProtocolService.bulkUpdateVerifications(ids, { status: this.bulkStatus }).subscribe({
+      next: () => {
+        this.verifications.update((prev) =>
+          prev.map((v) => (ids.includes(v.id) ? { ...v, status: this.bulkStatus } : v)),
+        );
+        this.saving.set(false);
+        this.bulkStatusDialogVisible = false;
+        this.selectedItems.set([]);
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  protected openBulkTraceDialog(): void {
+    if (this.selectedItems().length === 0) return;
+    this.bulkTraceUrsIds = [];
+    this.bulkTraceFsCsIds = [];
+    this.bulkTraceRiskIds = [];
+    this.bulkTraceDialogVisible = true;
+  }
+
+  protected applyBulkTrace(): void {
+    const ids = this.selectedItems().map((v) => v.id);
+    if (!ids.length) return;
+
+    this.saving.set(true);
+    this.testProtocolService
+      .bulkUpdateVerifications(ids, {
+        traceUrsIds: this.bulkTraceUrsIds,
+        traceFsCsIds: this.bulkTraceFsCsIds,
+        traceRiskIds: this.bulkTraceRiskIds,
+      })
+      .subscribe({
+        next: () => {
+          this.verifications.update((prev) =>
+            prev.map((v) =>
+              ids.includes(v.id)
+                ? {
+                    ...v,
+                    traceUrsIds: [...this.bulkTraceUrsIds],
+                    traceFsCsIds: [...this.bulkTraceFsCsIds],
+                    traceRiskIds: [...this.bulkTraceRiskIds],
+                  }
+                : v,
+            ),
+          );
+          this.saving.set(false);
+          this.bulkTraceDialogVisible = false;
+          this.selectedItems.set([]);
+        },
+        error: () => this.saving.set(false),
+      });
   }
 
   // --- Expanded Row logic ---
