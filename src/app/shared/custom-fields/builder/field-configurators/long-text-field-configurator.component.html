@@ -42,12 +42,13 @@
       <div>
         <span class="block text-sm font-medium text-gray-700 mb-1">Suggestion Template</span>
         @if (f.config.richText) {
-          <p-editor
+          <app-rich-text-editor
             [(ngModel)]="f.config.template"
-            (onTextChange)="updateField()"
+            (ngModelChange)="updateField()"
+            [allowImages]="false"
             [style]="{ height: '120px' }"
             placeholder="e.g. Please explain why {{ '{{ item.name }}' }} failed."
-          ></p-editor>
+          />
         } @else {
           <textarea
             [(ngModel)]="f.config.template"

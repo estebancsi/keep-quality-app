@@ -6,7 +6,7 @@ import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { EditorModule } from 'primeng/editor';
+import { RichTextEditorComponent } from '@/shared/components/rich-text-editor/rich-text-editor.component';
 import { DialogModule } from 'primeng/dialog';
 import { UrsService } from '../../services/urs.service';
 import { SelectModule } from 'primeng/select';
@@ -26,7 +26,7 @@ import { switchMap } from 'rxjs';
     ButtonModule,
     TooltipModule,
     ConfirmDialogModule,
-    EditorModule,
+    RichTextEditorComponent,
     DialogModule,
     DialogModule,
     SelectModule,
@@ -182,29 +182,11 @@ import { switchMap } from 'rxjs';
             </td>
             <td class="align-top">
               @if (editingId() === req.id) {
-                <p-editor [(ngModel)]="editDescription" [style]="{ height: '150px' }">
-                  <ng-template #header>
-                    <span class="ql-formats">
-                      <button type="button" class="ql-bold" aria-label="Bold"></button>
-                      <button type="button" class="ql-italic" aria-label="Italic"></button>
-                      <button type="button" class="ql-underline" aria-label="Underline"></button>
-                    </span>
-                    <span class="ql-formats">
-                      <button
-                        type="button"
-                        class="ql-list"
-                        value="ordered"
-                        aria-label="Ordered list"
-                      ></button>
-                      <button
-                        type="button"
-                        class="ql-list"
-                        value="bullet"
-                        aria-label="Bullet list"
-                      ></button>
-                    </span>
-                  </ng-template>
-                </p-editor>
+                <app-rich-text-editor
+                  [(ngModel)]="editDescription"
+                  [allowImages]="false"
+                  [style]="{ height: '150px' }"
+                />
                 <div class="flex gap-2 mt-2">
                   <p-button
                     label="Save"

@@ -9,7 +9,7 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { SelectModule } from 'primeng/select';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { DatePickerModule } from 'primeng/datepicker';
-import { EditorModule } from 'primeng/editor';
+import { RichTextEditorComponent } from '../../components/rich-text-editor/rich-text-editor.component';
 import { RadioButtonModule } from 'primeng/radiobutton';
 import { TooltipModule } from 'primeng/tooltip';
 import {
@@ -62,7 +62,7 @@ import { hydratePrompt } from '../../../core/utils/prompt.utils';
     SelectModule,
     MultiSelectModule,
     DatePickerModule,
-    EditorModule,
+    RichTextEditorComponent,
     RadioButtonModule,
     TooltipModule,
   ],
@@ -184,9 +184,10 @@ import { hydratePrompt } from '../../../core/utils/prompt.utils';
               <!-- LONG_TEXT (rich text) -->
               @if (isLongTextField(field) && asLongTextField(field).config.richText) {
                 <div class="relative">
-                  <p-editor
+                  <app-rich-text-editor
                     [ngModel]="getFieldValue(field.name)"
                     (ngModelChange)="onFieldChange(field.name, $event)"
+                    [allowImages]="false"
                     [style]="{ height: asLongTextField(field).config.rows * 24 + 'px' }"
                   />
                   @if (asLongTextField(field).config.template) {

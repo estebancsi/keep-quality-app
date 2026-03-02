@@ -8,6 +8,7 @@ import {
   viewChild,
   ChangeDetectorRef,
   signal,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -38,6 +39,7 @@ import Quill from 'quill';
       [style]="style()"
       class="w-full flex flex-col"
       (onInit)="onEditorInit($event)"
+      [placeholder]="placeholder()"
     >
       <ng-template #header>
         <span class="ql-formats">
@@ -49,9 +51,11 @@ import Quill from 'quill';
           <button type="button" class="ql-list" value="ordered" aria-label="Ordered list"></button>
           <button type="button" class="ql-list" value="bullet" aria-label="Bullet list"></button>
         </span>
-        <span class="ql-formats">
-          <button type="button" class="ql-image" aria-label="Image"></button>
-        </span>
+        @if (allowImages()) {
+          <span class="ql-formats">
+            <button type="button" class="ql-image" aria-label="Image"></button>
+          </span>
+        }
       </ng-template>
     </p-editor>
   `,
@@ -68,7 +72,9 @@ import Quill from 'quill';
   `,
 })
 export class RichTextEditorComponent implements ControlValueAccessor {
-  readonly storagePrefix = input.required<string>();
+  readonly storagePrefix = input<string>();
+  readonly allowImages = input(true);
+  readonly placeholder = input<string>('');
   readonly style = input<Record<string, string>>({ minHeight: '250px' });
   readonly attachments = model<AttachmentCache[]>([]);
 
@@ -84,6 +90,16 @@ export class RichTextEditorComponent implements ControlValueAccessor {
   private storageService = inject(StorageService);
   private attachmentUtils = inject(AttachmentUtilsService);
   private cdr = inject(ChangeDetectorRef);
+
+  constructor() {
+    effect(() => {
+      if (this.allowImages() && !this.storagePrefix()) {
+        console.error(
+          'RichTextEditorComponent: storagePrefix is required when allowImages is true',
+        );
+      }
+    });
+  }
 
   writeValue(value: string | null): void {
     const rawHtml = value || '';
@@ -125,22 +141,24 @@ export class RichTextEditorComponent implements ControlValueAccessor {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const toolbar = quill.getModule('toolbar') as any;
 
-    toolbar.addHandler('image', () => {
-      const input = document.createElement('input');
-      input.setAttribute('type', 'file');
-      input.setAttribute('accept', 'image/*');
-      input.style.display = 'none';
-      document.body.appendChild(input);
-      input.click();
+    if (this.allowImages()) {
+      toolbar.addHandler('image', () => {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.style.display = 'none';
+        document.body.appendChild(input);
+        input.click();
 
-      input.onchange = async () => {
-        document.body.removeChild(input);
-        const file = input.files ? input.files[0] : null;
-        if (file) {
-          await this.uploadAndInsertImage(file, quill);
-        }
-      };
-    });
+        input.onchange = async () => {
+          document.body.removeChild(input);
+          const file = input.files ? input.files[0] : null;
+          if (file) {
+            await this.uploadAndInsertImage(file, quill);
+          }
+        };
+      });
+    }
 
     // Handle paste events for images using capture phase to intercept before Quill
     quill.root.addEventListener(
@@ -161,6 +179,42 @@ export class RichTextEditorComponent implements ControlValueAccessor {
           e.preventDefault();
           e.stopPropagation();
 
+          if (!this.allowImages()) return;
+
+          for (const item of Array.from(items)) {
+            if (item.type.indexOf('image') !== -1) {
+              const file = item.getAsFile();
+              if (file) {
+                await this.uploadAndInsertImage(file, quill);
+              }
+            }
+          }
+        }
+      },
+      true,
+    );
+
+    // Handle drop events for images using capture phase
+    quill.root.addEventListener(
+      'drop',
+      async (e: DragEvent) => {
+        const items = e.dataTransfer?.items;
+        if (!items) return;
+
+        let hasImage = false;
+        for (const item of Array.from(items)) {
+          if (item.type.indexOf('image') !== -1) {
+            hasImage = true;
+            break;
+          }
+        }
+
+        if (hasImage) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          if (!this.allowImages()) return;
+
           for (const item of Array.from(items)) {
             if (item.type.indexOf('image') !== -1) {
               const file = item.getAsFile();
@@ -177,8 +231,13 @@ export class RichTextEditorComponent implements ControlValueAccessor {
 
   private async uploadAndInsertImage(file: File, quill: Quill) {
     try {
+      const prefix = this.storagePrefix();
+      if (!prefix) {
+        throw new Error('storagePrefix is required to upload images');
+      }
+
       const filename = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-      const objectName = `${this.storagePrefix()}/${filename}`;
+      const objectName = `${prefix}/${filename}`;
 
       // 1. Get upload signed URL
       const uploadData = (await lastValueFrom(

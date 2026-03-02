@@ -15,7 +15,7 @@ import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { EditorModule } from 'primeng/editor';
+import { RichTextEditorComponent } from '@/shared/components/rich-text-editor/rich-text-editor.component';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { InputTextModule } from 'primeng/inputtext';
 import { AutoCompleteModule } from 'primeng/autocomplete';
@@ -35,7 +35,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     ButtonModule,
     TooltipModule,
     ConfirmDialogModule,
-    EditorModule,
+    RichTextEditorComponent,
     MultiSelectModule,
     InputTextModule,
     AutoCompleteModule,
@@ -193,20 +193,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             <td class="align-top">
               @if (editingId() === req.id) {
                 <div class="flex flex-col gap-2">
-                  <p-editor [(ngModel)]="editDescription" [style]="{ height: '120px' }">
-                    <ng-template #header>
-                      <span class="ql-formats">
-                        <button type="button" class="ql-bold" aria-label="Bold"></button>
-                        <button type="button" class="ql-italic" aria-label="Italic"></button>
-                        <button
-                          type="button"
-                          class="ql-list"
-                          value="bullet"
-                          aria-label="Bullet List"
-                        ></button>
-                      </span>
-                    </ng-template>
-                  </p-editor>
+                  <app-rich-text-editor
+                    [(ngModel)]="editDescription"
+                    [allowImages]="false"
+                    [style]="{ height: '120px' }"
+                  />
 
                   <div class="flex flex-col gap-1">
                     <label class="text-xs font-semibold text-surface-500" for="trace-urs"
