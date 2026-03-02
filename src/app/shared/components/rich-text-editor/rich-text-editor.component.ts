@@ -82,9 +82,8 @@ export class RichTextEditorComponent implements ControlValueAccessor {
 
   content = signal('');
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private onChange: (value: string) => void = () => {};
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+
   private onTouched: () => void = () => {};
 
   private storageService = inject(StorageService);
