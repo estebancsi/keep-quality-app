@@ -133,7 +133,6 @@ const MM_TO_PX = 96 / 25.4; // ~3.78 px per mm
       min-height: 0;
       overflow: hidden;
       box-sizing: border-box;
-      zoom: 0.9;
     }
 
     .footer-zone {

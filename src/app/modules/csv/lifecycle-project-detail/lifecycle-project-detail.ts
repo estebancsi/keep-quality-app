@@ -851,10 +851,10 @@ export class LifecycleProjectDetail {
         ? {
             ...template.options,
             title: systemInfo.name ? `${systemInfo.name} - ${templateCode}` : templateCode,
-            marginTop: template.options.marginTop + 'px',
-            marginBottom: template.options.marginBottom + 'px',
-            marginLeft: template.options.marginLeft + 'px',
-            marginRight: template.options.marginRight + 'px',
+            marginTop: template.options.marginTop + 'mm',
+            marginBottom: template.options.marginBottom + 'mm',
+            marginLeft: template.options.marginLeft + 'mm',
+            marginRight: template.options.marginRight + 'mm',
           }
         : { title: templateCode };
 
