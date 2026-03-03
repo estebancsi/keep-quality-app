@@ -131,8 +131,15 @@ export class RichTextEditorComponent implements ControlValueAccessor {
   }
 
   onEditorTextChange(event: EditorTextChangeEvent) {
-    this.content.set(event.htmlValue || '');
-    this.onChange(this.content());
+    const rawHtml = event.htmlValue || '';
+    this.content.set(rawHtml);
+
+    // Replace &nbsp; with a literal space ONLY when it's between letters.
+    // This prevents word-splitting in PDFs without collapsing intentional empty lines or multiple spaces.
+    // \p{L} matches any unicode letter (including accents like á, é, ñ).
+    const cleanedHtml = rawHtml.replace(/(?<=\p{L})&nbsp;(?=\p{L})/gu, ' ');
+
+    this.onChange(cleanedHtml);
   }
 
   onEditorInit(event: EditorInitEvent) {
