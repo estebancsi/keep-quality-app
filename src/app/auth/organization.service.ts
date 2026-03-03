@@ -54,6 +54,12 @@ export class OrganizationService {
     return orgs.length > 0 ? orgs[0].id : undefined;
   });
 
+  readonly activeOrganization = computed(() => {
+    const orgId = this.activeOrganizationId();
+    const orgs = this.organizations();
+    return orgs.find((o) => o.id === orgId);
+  });
+
   loadOrganizations(): Observable<Organization[]> {
     return this.http
       .get<{

@@ -39,6 +39,7 @@ import { TestVerificationTableComponent } from './components/test-verification-t
 import { TestProtocolService } from '../services/test-protocol.service';
 import { TestProtocol, TestPhase } from '../test-protocol.interface';
 import { CsvRolesPermissionsWrapperComponent } from './roles-permissions-wrapper/roles-permissions-wrapper.component';
+import { OrganizationService } from '@/auth/organization.service';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -422,6 +423,7 @@ export class LifecycleProjectDetail {
   private readonly pdfTemplatesService = inject(PdfTemplatesService);
   private readonly validationPlanService = inject(ValidationPlanService);
   private readonly testProtocolService = inject(TestProtocolService);
+  private readonly organizationService = inject(OrganizationService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
@@ -797,10 +799,13 @@ export class LifecycleProjectDetail {
       }
 
       let items: unknown[] = [];
+      let customFields: Record<string, unknown> = {};
+
       const p = this.project();
       const systemInfo = p?.system
         ? {
             name: p.system.name,
+            code: p.system.code,
             version: p.system.version,
             description: p.system.description,
             category: p.system.categoryCode?.toString(),
@@ -809,10 +814,15 @@ export class LifecycleProjectDetail {
 
       if (templateCode === 'csv.urs_artifact' && this.ursArtifact) {
         items = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
+        customFields = this.ursArtifact.customFieldValues || {};
       } else if (templateCode.startsWith('csv.spec.') && this.fsCsArtifact && fsCsType) {
         items = await firstValueFrom(
           this.fsCsService.loadRequirements(this.fsCsArtifact.id, fsCsType as FsCsRequirementType),
         );
+        customFields =
+          (this.fsCsArtifact.customFieldValues as Record<string, Record<string, unknown>>)?.[
+            fsCsType
+          ] || {};
       } else if (templateCode === 'csv.risk_analysis_artifact' && this.riskAnalysisArtifactId) {
         const riskItems = await firstValueFrom(
           this.riskService.loadItems(this.riskAnalysisArtifactId),
@@ -826,6 +836,7 @@ export class LifecycleProjectDetail {
       } else if (templateCode === 'csv.validation_plan' && this.validationPlanArtifact) {
         // Validation plan has no items list, just properties
         items = [];
+        customFields = this.validationPlanArtifact.customFieldValues || {};
       } else if (templateCode.startsWith('csv.test_protocol.') && testPhase) {
         const testArtifact = this.testProtocolArtifacts[testPhase];
         if (testArtifact) {
@@ -839,11 +850,29 @@ export class LifecycleProjectDetail {
             }),
           );
           items = withSteps;
+          customFields = (testArtifact.customFieldValues as Record<string, unknown>) || {};
         }
       }
 
+      const currentOrg = this.organizationService.activeOrganization();
+
       const payload = {
+        organization: currentOrg ? { id: currentOrg.id, name: currentOrg.name } : null,
+        lifecycle: p
+          ? {
+              code: p.code,
+              type: p.type,
+              status: p.status,
+              startDate: p.startDate,
+              targetCompletionDate: p.targetCompletionDate,
+              actualCompletionDate: p.actualCompletionDate,
+              assignedTo: p.assignedTo,
+              assignedToName: p.assignedToName,
+              notes: p.notes,
+            }
+          : null,
         system: systemInfo,
+        customFields,
         items,
       };
 
