@@ -189,7 +189,7 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         traceUrsIds: ['urs-id'],
         traceUrs: [{ id: 'urs-id', code: 100 }],
         traceFsCsIds: ['fscs-id'],
-        traceFsCs: [{ id: 'fscs-id', code: 200 }],
+        traceFsCs: [{ id: 'fscs-id', code: 200, reqType: 'Functional|Configuration|Design' }],
       },
     ] as any[],
   },
@@ -242,7 +242,7 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         traceUrsIds: ['urs-id'],
         traceUrs: [{ id: 'urs-id', code: 100 }],
         traceFsCsIds: ['fscs-id'],
-        traceFsCs: [{ id: 'fscs-id', code: 200 }],
+        traceFsCs: [{ id: 'fscs-id', code: 200, reqType: 'Functional|Configuration|Design' }],
         traceRiskIds: ['risk-id'],
         traceRisks: [{ id: 'risk-id', code: 300 }],
         testSteps: [
@@ -282,7 +282,7 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         traceUrsIds: ['urs-id'],
         traceUrs: [{ id: 'urs-id', code: 100 }],
         traceFsCsIds: ['fscs-id'],
-        traceFsCs: [{ id: 'fscs-id', code: 200 }],
+        traceFsCs: [{ id: 'fscs-id', code: 200, reqType: 'Functional|Configuration|Design' }],
         traceRiskIds: ['risk-id'],
         traceRisks: [{ id: 'risk-id', code: 300 }],
         testSteps: [
@@ -322,7 +322,7 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         traceUrsIds: ['urs-id'],
         traceUrs: [{ id: 'urs-id', code: 100 }],
         traceFsCsIds: ['fscs-id'],
-        traceFsCs: [{ id: 'fscs-id', code: 200 }],
+        traceFsCs: [{ id: 'fscs-id', code: 200, reqType: 'Functional|Configuration|Design' }],
         traceRiskIds: ['risk-id'],
         traceRisks: [{ id: 'risk-id', code: 300 }],
         testSteps: [

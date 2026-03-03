@@ -832,7 +832,7 @@ export class LifecycleProjectDetail {
         : {};
 
       const ursMap = new Map<string, number>();
-      const fsCsMap = new Map<string, number>();
+      const fsCsMap = new Map<string, { code: number; reqType: string }>();
       const riskMap = new Map<string, number>();
 
       if (
@@ -853,7 +853,7 @@ export class LifecycleProjectDetail {
         const allFsCs = await firstValueFrom(
           this.fsCsService.loadRequirements(this.fsCsArtifact.id),
         );
-        allFsCs.forEach((f) => fsCsMap.set(f.id, f.code));
+        allFsCs.forEach((f) => fsCsMap.set(f.id, { code: f.code, reqType: f.reqType }));
       }
 
       if (templateCode.startsWith('csv.test_protocol.') && this.riskAnalysisArtifactId) {
@@ -885,7 +885,10 @@ export class LifecycleProjectDetail {
         items = riskItems.map((r) => ({
           ...r,
           traceUrs: (r.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
-          traceFsCs: (r.traceFsCsIds || []).map((id) => ({ id, code: fsCsMap.get(id) || null })),
+          traceFsCs: (r.traceFsCsIds || []).map((id) => {
+            const fsCs = fsCsMap.get(id);
+            return { id, code: fsCs?.code || null, reqType: fsCs?.reqType || null };
+          }),
         }));
       } else if (templateCode === 'csv.validation_plan' && this.validationPlanArtifact) {
         // Validation plan has no items list, just properties
@@ -904,10 +907,14 @@ export class LifecycleProjectDetail {
                 ...v,
                 testSteps: steps,
                 traceUrs: (v.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
-                traceFsCs: (v.traceFsCsIds || []).map((id) => ({
-                  id,
-                  code: fsCsMap.get(id) || null,
-                })),
+                traceFsCs: (v.traceFsCsIds || []).map((id) => {
+                  const fsCs = fsCsMap.get(id);
+                  return {
+                    id,
+                    code: fsCs?.code || null,
+                    reqType: fsCs?.reqType || null,
+                  };
+                }),
                 traceRisks: (v.traceRiskIds || []).map((id) => ({
                   id,
                   code: riskMap.get(id) || null,
