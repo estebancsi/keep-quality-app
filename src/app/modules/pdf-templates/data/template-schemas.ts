@@ -86,8 +86,10 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         position: 1,
         description: 'Sample description',
         groupName: 'Sample group',
+        traceUrsIds: ['urs-id'],
+        traceUrs: [{ id: 'urs-id', code: 100 }],
       },
-    ] as FsCsRequirement[],
+    ] as any[],
   },
   'csv.spec.configuration': {
     organization: { id: 'org-123', name: 'Sample Organization' },
@@ -115,8 +117,10 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         position: 1,
         description: 'Sample description',
         groupName: 'Sample group',
+        traceUrsIds: ['urs-id'],
+        traceUrs: [{ id: 'urs-id', code: 100 }],
       },
-    ] as FsCsRequirement[],
+    ] as any[],
   },
   'csv.spec.design': {
     organization: { id: 'org-123', name: 'Sample Organization' },
@@ -144,8 +148,10 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         position: 1,
         description: 'Sample description',
         groupName: 'Sample group',
+        traceUrsIds: ['urs-id'],
+        traceUrs: [{ id: 'urs-id', code: 100 }],
       },
-    ] as FsCsRequirement[],
+    ] as any[],
   },
   'csv.risk_analysis_artifact': {
     organization: { id: 'org-123', name: 'Sample Organization' },
@@ -180,10 +186,12 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
         rpn: 1,
         riskClass: 1,
         mitigation: 'Sample mitigation',
-        traceUrs: [],
-        traceFsCs: [],
+        traceUrsIds: ['urs-id'],
+        traceUrs: [{ id: 'urs-id', code: 100 }],
+        traceFsCsIds: ['fscs-id'],
+        traceFsCs: [{ id: 'fscs-id', code: 200 }],
       },
-    ] as Partial<RiskAnalysisItem & { traceUrs: string[]; traceFsCs: string[] }>[],
+    ] as any[],
   },
   'csv.validation_plan': {
     organization: { id: 'org-123', name: 'Sample Organization' },
@@ -231,6 +239,12 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
       {
         id: 'verification-1',
         title: 'Sample Verification',
+        traceUrsIds: ['urs-id'],
+        traceUrs: [{ id: 'urs-id', code: 100 }],
+        traceFsCsIds: ['fscs-id'],
+        traceFsCs: [{ id: 'fscs-id', code: 200 }],
+        traceRiskIds: ['risk-id'],
+        traceRisks: [{ id: 'risk-id', code: 300 }],
         testSteps: [
           {
             id: 'step-1',
@@ -265,6 +279,12 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
       {
         id: 'verification-1',
         title: 'Sample Verification',
+        traceUrsIds: ['urs-id'],
+        traceUrs: [{ id: 'urs-id', code: 100 }],
+        traceFsCsIds: ['fscs-id'],
+        traceFsCs: [{ id: 'fscs-id', code: 200 }],
+        traceRiskIds: ['risk-id'],
+        traceRisks: [{ id: 'risk-id', code: 300 }],
         testSteps: [
           {
             id: 'step-1',
@@ -299,6 +319,12 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
       {
         id: 'verification-1',
         title: 'Sample Verification',
+        traceUrsIds: ['urs-id'],
+        traceUrs: [{ id: 'urs-id', code: 100 }],
+        traceFsCsIds: ['fscs-id'],
+        traceFsCs: [{ id: 'fscs-id', code: 200 }],
+        traceRiskIds: ['risk-id'],
+        traceRisks: [{ id: 'risk-id', code: 300 }],
         testSteps: [
           {
             id: 'step-1',

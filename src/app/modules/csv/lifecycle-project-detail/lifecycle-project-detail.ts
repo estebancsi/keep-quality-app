@@ -831,13 +831,49 @@ export class LifecycleProjectDetail {
           }
         : {};
 
+      const ursMap = new Map<string, number>();
+      const fsCsMap = new Map<string, number>();
+      const riskMap = new Map<string, number>();
+
+      if (
+        (templateCode.startsWith('csv.spec.') ||
+          templateCode === 'csv.risk_analysis_artifact' ||
+          templateCode.startsWith('csv.test_protocol.')) &&
+        this.ursArtifact
+      ) {
+        const allUrs = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
+        allUrs.forEach((u) => ursMap.set(u.id, u.code));
+      }
+
+      if (
+        (templateCode === 'csv.risk_analysis_artifact' ||
+          templateCode.startsWith('csv.test_protocol.')) &&
+        this.fsCsArtifact
+      ) {
+        const allFsCs = await firstValueFrom(
+          this.fsCsService.loadRequirements(this.fsCsArtifact.id),
+        );
+        allFsCs.forEach((f) => fsCsMap.set(f.id, f.code));
+      }
+
+      if (templateCode.startsWith('csv.test_protocol.') && this.riskAnalysisArtifactId) {
+        const allRisks = await firstValueFrom(
+          this.riskService.loadItems(this.riskAnalysisArtifactId),
+        );
+        allRisks.forEach((r) => riskMap.set(r.id, r.code));
+      }
+
       if (templateCode === 'csv.urs_artifact' && this.ursArtifact) {
         items = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
         customFields = this.ursArtifact.customFieldValues || {};
       } else if (templateCode.startsWith('csv.spec.') && this.fsCsArtifact && fsCsType) {
-        items = await firstValueFrom(
+        const specs = await firstValueFrom(
           this.fsCsService.loadRequirements(this.fsCsArtifact.id, fsCsType as FsCsRequirementType),
         );
+        items = specs.map((s) => ({
+          ...s,
+          traceUrs: (s.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
+        }));
         customFields =
           (this.fsCsArtifact.customFieldValues as Record<string, Record<string, unknown>>)?.[
             fsCsType
@@ -846,11 +882,10 @@ export class LifecycleProjectDetail {
         const riskItems = await firstValueFrom(
           this.riskService.loadItems(this.riskAnalysisArtifactId),
         );
-        // Map traceIDs to an array of codes if needed, or just pass as is.
         items = riskItems.map((r) => ({
           ...r,
-          traceUrs: r.traceUrsIds || [],
-          traceFsCs: r.traceFsCsIds || [],
+          traceUrs: (r.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
+          traceFsCs: (r.traceFsCsIds || []).map((id) => ({ id, code: fsCsMap.get(id) || null })),
         }));
       } else if (templateCode === 'csv.validation_plan' && this.validationPlanArtifact) {
         // Validation plan has no items list, just properties
@@ -865,7 +900,19 @@ export class LifecycleProjectDetail {
           const withSteps = await Promise.all(
             verifications.map(async (v) => {
               const steps = await firstValueFrom(this.testProtocolService.loadTestSteps(v.id));
-              return { ...v, testSteps: steps };
+              return {
+                ...v,
+                testSteps: steps,
+                traceUrs: (v.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
+                traceFsCs: (v.traceFsCsIds || []).map((id) => ({
+                  id,
+                  code: fsCsMap.get(id) || null,
+                })),
+                traceRisks: (v.traceRiskIds || []).map((id) => ({
+                  id,
+                  code: riskMap.get(id) || null,
+                })),
+              };
             }),
           );
           items = withSteps;
