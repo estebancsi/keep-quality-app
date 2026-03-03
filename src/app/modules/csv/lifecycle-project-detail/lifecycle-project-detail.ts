@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -198,6 +205,7 @@ import { OrganizationService } from '@/auth/organization.service';
                     <app-custom-fields-renderer
                       [schema]="schema"
                       [values]="customFieldValues()"
+                      [context]="rendererContext()"
                       (valuesChange)="onCustomFieldsChanged($event)"
                     />
                   }
@@ -242,7 +250,7 @@ import { OrganizationService } from '@/auth/organization.service';
                       <app-custom-fields-renderer
                         [schema]="schema"
                         [values]="validationPlanValues()"
-                        [context]="{ system: p.system }"
+                        [context]="rendererContext()"
                         (valuesChange)="onValidationPlanValuesChanged($event)"
                       />
                     } @else if (!loading()) {
@@ -318,6 +326,7 @@ import { OrganizationService } from '@/auth/organization.service';
                       <app-custom-fields-renderer
                         [schema]="schema"
                         [values]="testProtocolValues()[phase] || {}"
+                        [context]="rendererContext()"
                         (valuesChange)="onTestProtocolValuesChanged(phase, $event)"
                       />
                     }
@@ -377,6 +386,7 @@ import { OrganizationService } from '@/auth/organization.service';
                             <app-custom-fields-renderer
                               [schema]="schema"
                               [values]="fsCsValues()[type] || {}"
+                              [context]="rendererContext()"
                               (valuesChange)="onFsCsValuesChanged(type, $event)"
                             />
                           }
@@ -476,6 +486,15 @@ export class LifecycleProjectDetail {
 
   // PDF Generation State
   protected readonly generatingPdf = signal<string | null>(null);
+
+  protected readonly rendererContext = computed(() => {
+    const p = this.project();
+    const org = this.organizationService.activeOrganization();
+    return {
+      organization: org,
+      system: p?.system,
+    };
+  });
 
   constructor() {
     effect(() => {
