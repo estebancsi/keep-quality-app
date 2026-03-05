@@ -115,5 +115,11 @@ export const routes: Routes = [
     loadChildren: () =>
       import('./modules/system-prompts/system-prompts.routes').then((m) => m.SYSTEM_PROMPTS_ROUTES),
   },
+  {
+    path: 'admin/notifications',
+    component: AppLayout,
+    canActivateChild: [autoLoginPartialRoutesGuard],
+    loadChildren: () => import('./modules/admin-notifications/admin-notifications.routes'),
+  },
   { path: '**', redirectTo: 'notfound' },
 ];
