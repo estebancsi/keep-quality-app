@@ -47,6 +47,11 @@ import { TestProtocolService } from '../services/test-protocol.service';
 import { TestProtocol, TestPhase } from '../test-protocol.interface';
 import { CsvRolesPermissionsWrapperComponent } from './roles-permissions-wrapper/roles-permissions-wrapper.component';
 import { OrganizationService } from '@/auth/organization.service';
+import { PdfJobService } from '@/shared/services/pdf-job.service';
+import { LifecycleAttachmentsService } from '../services/lifecycle-attachments.service';
+import { PublishTestResultsDialogComponent } from './components/publish-test-results-dialog';
+import { MessageService } from 'primeng/api';
+import { TooltipModule } from 'primeng/tooltip';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -63,6 +68,8 @@ import { OrganizationService } from '@/auth/organization.service';
     ArtifactImportDialogComponent,
     TestVerificationTableComponent,
     CsvRolesPermissionsWrapperComponent,
+    PublishTestResultsDialogComponent,
+    TooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -97,6 +104,14 @@ import { OrganizationService } from '@/auth/organization.service';
 
           <!-- Actions -->
           <div class="flex gap-2">
+            <p-button
+              label="Attachments"
+              icon="pi pi-paperclip"
+              [outlined]="true"
+              severity="secondary"
+              (click)="goToAttachments()"
+              pTooltip="View project attachments"
+            />
             <p-button
               label="Export"
               icon="pi pi-download"
@@ -310,6 +325,23 @@ import { OrganizationService } from '@/auth/organization.service';
                           [loading]="generatingPdf() === 'csv.test_protocol.' + phase"
                           (click)="generatePdf('csv.test_protocol.' + phase, undefined, phase)"
                         />
+                        <p-button
+                          label="Edit PDF"
+                          icon="pi pi-pencil"
+                          size="small"
+                          [outlined]="true"
+                          (click)="editPdf('csv.test_results.' + phase)"
+                          pTooltip="Edit test results PDF template"
+                        />
+                        <p-button
+                          label="Publish Results"
+                          icon="pi pi-cloud-upload"
+                          size="small"
+                          [outlined]="true"
+                          [loading]="publishingResults() === phase"
+                          (click)="openPublishDialog(phase)"
+                          pTooltip="Publish test results as PDF attachment"
+                        />
                         @if (testProtocolSchemas()[phase]; as schema) {
                           <p-button
                             label="Save Properties"
@@ -340,6 +372,13 @@ import { OrganizationService } from '@/auth/organization.service';
                   <app-csv-roles-permissions-wrapper [projectId]="p.id" />
                 </div>
               </p-tabpanel>
+
+              <app-publish-test-results-dialog
+                [phase]="publishDialogPhase()"
+                [(visible)]="publishDialogVisible"
+                [publishing]="publishingResults() !== null"
+                (publish)="publishTestResults($event)"
+              />
 
               @if (showFsCsTab()) {
                 <p-tabpanel value="fs-cs">
@@ -434,6 +473,9 @@ export class LifecycleProjectDetail {
   private readonly validationPlanService = inject(ValidationPlanService);
   private readonly testProtocolService = inject(TestProtocolService);
   private readonly organizationService = inject(OrganizationService);
+  private readonly pdfJobService = inject(PdfJobService);
+  private readonly attachmentsService = inject(LifecycleAttachmentsService);
+  private readonly messageService = inject(MessageService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
@@ -486,6 +528,11 @@ export class LifecycleProjectDetail {
 
   // PDF Generation State
   protected readonly generatingPdf = signal<string | null>(null);
+
+  // Publish Results State
+  protected readonly publishingResults = signal<string | null>(null);
+  protected readonly publishDialogVisible = signal(false);
+  protected readonly publishDialogPhase = signal<TestPhase>('iq');
 
   protected readonly rendererContext = computed(() => {
     const p = this.project();
@@ -977,6 +1024,190 @@ export class LifecycleProjectDetail {
       console.error('Failed to generate PDF', err);
     } finally {
       this.generatingPdf.set(null);
+    }
+  }
+
+  protected goToAttachments(): void {
+    const p = this.project();
+    if (p) {
+      this.router.navigate(['/csv/lifecycle', p.id, 'attachments']);
+    }
+  }
+
+  protected openPublishDialog(phase: string): void {
+    this.publishDialogPhase.set(phase as TestPhase);
+    this.publishDialogVisible.set(true);
+  }
+
+  protected async publishTestResults(event: { name: string; phase: TestPhase }): Promise<void> {
+    const { name, phase } = event;
+    this.publishingResults.set(phase);
+    this.publishDialogVisible.set(false);
+
+    try {
+      const templateCode = `csv.test_results.${phase}`;
+      const template = await firstValueFrom(
+        this.pdfTemplatesService.getTemplateByName(templateCode),
+      );
+      if (!template) {
+        throw new Error('Template not found');
+      }
+
+      const p = this.project();
+      if (!p) throw new Error('No project loaded');
+
+      const systemInfo = p.system
+        ? {
+            name: p.system.name,
+            code: p.system.code,
+            version: p.system.version,
+            description: p.system.description,
+            category: p.system.categoryCode?.toString(),
+          }
+        : {};
+
+      // Build trace maps
+      const ursMap = new Map<string, number>();
+      const fsCsMap = new Map<string, { code: number; reqType: string }>();
+      const riskMap = new Map<string, number>();
+
+      if (this.ursArtifact) {
+        const allUrs = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
+        allUrs.forEach((u) => ursMap.set(u.id, u.code));
+      }
+
+      if (this.fsCsArtifact) {
+        const allFsCs = await firstValueFrom(
+          this.fsCsService.loadRequirements(this.fsCsArtifact.id),
+        );
+        allFsCs.forEach((f) => fsCsMap.set(f.id, { code: f.code, reqType: f.reqType }));
+      }
+
+      if (this.riskAnalysisArtifactId) {
+        const allRisks = await firstValueFrom(
+          this.riskService.loadItems(this.riskAnalysisArtifactId),
+        );
+        allRisks.forEach((r) => riskMap.set(r.id, r.code));
+      }
+
+      // Build items — same logic as generatePdf test_protocol branch
+      const testArtifact = this.testProtocolArtifacts[phase];
+      let items: unknown[] = [];
+      let customFields: Record<string, unknown> = {};
+
+      if (testArtifact) {
+        const verifications = await firstValueFrom(
+          this.testProtocolService.loadVerifications(testArtifact.id),
+        );
+        const withSteps = await Promise.all(
+          verifications.map(async (v) => {
+            const steps = await firstValueFrom(this.testProtocolService.loadTestSteps(v.id));
+            return {
+              ...v,
+              testSteps: steps,
+              traceUrs: (v.traceUrsIds || []).map((id) => ({
+                id,
+                code: ursMap.get(id) || null,
+              })),
+              traceFsCs: (v.traceFsCsIds || []).map((id) => {
+                const fsCs = fsCsMap.get(id);
+                return {
+                  id,
+                  code: fsCs?.code || null,
+                  reqType: fsCs?.reqType || null,
+                };
+              }),
+              traceRisks: (v.traceRiskIds || []).map((id) => ({
+                id,
+                code: riskMap.get(id) || null,
+              })),
+            };
+          }),
+        );
+        items = withSteps;
+        customFields = (testArtifact.customFieldValues as Record<string, unknown>) || {};
+      }
+
+      const currentOrg = this.organizationService.activeOrganization();
+
+      const payload = {
+        organization: currentOrg ? { id: currentOrg.id, name: currentOrg.name } : null,
+        lifecycle: p
+          ? {
+              code: p.code,
+              type: p.type,
+              status: p.status,
+              startDate: p.startDate,
+              targetCompletionDate: p.targetCompletionDate,
+              actualCompletionDate: p.actualCompletionDate,
+              assignedTo: p.assignedTo,
+              assignedToName: p.assignedToName,
+              notes: p.notes,
+            }
+          : null,
+        system: systemInfo,
+        customFields,
+        items,
+      };
+
+      const pdfOptions = template.options
+        ? {
+            ...template.options,
+            title: systemInfo.name ? `${systemInfo.name} - ${templateCode}` : templateCode,
+            marginTop: template.options.marginTop + 'mm',
+            marginBottom: template.options.marginBottom + 'mm',
+            marginLeft: template.options.marginLeft + 'mm',
+            marginRight: template.options.marginRight + 'mm',
+          }
+        : { title: templateCode };
+
+      // Generate a UUID for the file name
+      const fileUuid = crypto.randomUUID();
+      const objectName = `lifecycle-projects/${p.id}/attachments/${fileUuid}.pdf`;
+      const actionUrl = `/csv/lifecycle/${p.id}/attachments`;
+
+      // 1. Create the attachment record in Supabase first
+      const attachment = await firstValueFrom(
+        this.attachmentsService.createAttachment({
+          lifecycleProjectId: p.id,
+          name,
+          objectName,
+          status: 'publishing',
+          contentType: 'application/pdf',
+        }),
+      );
+
+      // 2. Submit the PDF job to the Python API
+      await firstValueFrom(
+        this.pdfJobService.submitPdfJob({
+          object_name: objectName,
+          action_url: actionUrl,
+          html: template.html,
+          css: template.css,
+          header: template.header,
+          footer: template.footer,
+          options: pdfOptions as unknown as Record<string, unknown>,
+          data: payload as unknown as Record<string, unknown>,
+        }),
+      );
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Publishing',
+        detail: `"${name}" is being published. You will receive a notification when it's ready.`,
+      });
+
+      // Navigate to attachments page
+      this.router.navigate(['/csv/lifecycle', p.id, 'attachments']);
+    } catch (err) {
+      console.error('Failed to publish test results', err);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to publish test results.',
+      });
+    } finally {
+      this.publishingResults.set(null);
     }
   }
 

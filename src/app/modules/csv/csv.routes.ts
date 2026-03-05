@@ -16,4 +16,9 @@ export default [
         (m) => m.LifecycleProjectDetail,
       ),
   },
+  {
+    path: 'lifecycle/:projectId/attachments',
+    loadComponent: () =>
+      import('./lifecycle-attachments/lifecycle-attachments').then((m) => m.LifecycleAttachments),
+  },
 ] as Routes;
