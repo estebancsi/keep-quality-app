@@ -39,7 +39,7 @@
     "hyperformula": "^3.1.1",
     "monaco-editor": "^0.55.1",
     "ngx-extended-pdf-viewer": "^25.6.4",
-    "ngx-monaco-editor-v2": "^20.3.0",
+    "ngx-monaco-editor-v2": "^21.1.4",
     "primeicons": "^7.0.0",
     "primeng": "^21.0.2",
     "quill": "^2.0.3",
