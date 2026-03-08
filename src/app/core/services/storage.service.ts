@@ -1,10 +1,17 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpBackend } from '@angular/common/http';
+import { HttpClient, HttpBackend, HttpParams } from '@angular/common/http';
 import { AppConfigService } from '@/config/app-config.service';
 import { Observable } from 'rxjs';
 
 export interface SignedUrlResponse {
   url: string;
+}
+
+export interface StorageObject {
+  name: string;
+  size: number;
+  content_type: string;
+  updated_at: string;
 }
 
 @Injectable({
@@ -56,5 +63,16 @@ export class StorageService {
    */
   deleteFile(objectName: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/objects/${encodeURIComponent(objectName)}`);
+  }
+
+  /**
+   * List files in storage, optionally filtered by prefix.
+   */
+  listObjects(prefix?: string): Observable<StorageObject[]> {
+    let params = new HttpParams();
+    if (prefix) {
+      params = params.set('prefix', prefix);
+    }
+    return this.http.get<StorageObject[]>(`${this.apiUrl}/objects`, { params });
   }
 }

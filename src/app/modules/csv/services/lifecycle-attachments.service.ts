@@ -1,8 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { SupabaseService } from '@/core/services/supabase.service';
-import { catchError, defer, map, Observable, throwError } from 'rxjs';
+import { catchError, defer, map, Observable, throwError, of, switchMap, forkJoin } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { OrganizationService } from '@/auth/organization.service';
+import { StorageService } from '@/core/services/storage.service';
 import {
   AttachmentStatus,
   LifecycleAttachment,
@@ -16,6 +17,7 @@ export class LifecycleAttachmentsService {
   private readonly supabase = inject(SupabaseService).client;
   private readonly messageService = inject(MessageService);
   private readonly orgService = inject(OrganizationService);
+  private readonly storageService = inject(StorageService);
 
   // ─── List ────────────────────────────────────────────
 
@@ -72,12 +74,58 @@ export class LifecycleAttachmentsService {
     );
   }
 
+  // ─── Sync Statuses ───────────────────────────────────
+
+  syncPublishingStatuses(
+    attachments: LifecycleAttachment[],
+    projectId: string,
+  ): Observable<LifecycleAttachment[]> {
+    const publishingExists = attachments.some((a) => a.status === 'publishing');
+    if (!publishingExists) {
+      return of(attachments);
+    }
+
+    const prefix = `lifecycle-projects/${projectId}/attachments/`;
+    return this.storageService.listObjects(prefix).pipe(
+      switchMap((objects) => {
+        const objectNames = new Set(objects.map((o) => o.name));
+        const updates: Observable<LifecycleAttachment>[] = [];
+
+        for (const attachment of attachments) {
+          if (attachment.status === 'publishing' && objectNames.has(attachment.objectName)) {
+            updates.push(this.updateAttachmentStatus(attachment.id, 'published'));
+          }
+        }
+
+        if (updates.length === 0) {
+          return of(attachments);
+        }
+
+        return forkJoin(updates).pipe(
+          map((updatedAttachments) => {
+            const updatedMap = new Map(updatedAttachments.map((a) => [a.id, a]));
+            return attachments.map((a) => updatedMap.get(a.id) || a);
+          }),
+        );
+      }),
+      catchError((error) => {
+        console.error('[Sync Publishing Statuses]', error);
+        return of(attachments);
+      }),
+    );
+  }
+
   // ─── Delete ──────────────────────────────────────────
 
-  deleteAttachment(id: string): Observable<void> {
-    return defer(async () =>
-      this.supabase.from('csv_lifecycle_attachments').delete().eq('id', id),
-    ).pipe(
+  deleteAttachment(id: string, objectName: string): Observable<void> {
+    return this.storageService.deleteFile(objectName).pipe(
+      catchError((err) => {
+        console.error('Failed to delete file from storage, proceeding to delete record', err);
+        return of(void 0);
+      }),
+      switchMap(() =>
+        defer(async () => this.supabase.from('csv_lifecycle_attachments').delete().eq('id', id)),
+      ),
       map(({ error }) => {
         if (error) throw error;
         this.messageService.add({

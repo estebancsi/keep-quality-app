@@ -1196,9 +1196,6 @@ export class LifecycleProjectDetail {
         summary: 'Publishing',
         detail: `"${name}" is being published. You will receive a notification when it's ready.`,
       });
-
-      // Navigate to attachments page
-      this.router.navigate(['/csv/lifecycle', p.id, 'attachments']);
     } catch (err) {
       console.error('Failed to publish test results', err);
       this.messageService.add({

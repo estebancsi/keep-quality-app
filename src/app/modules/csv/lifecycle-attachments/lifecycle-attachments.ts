@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { switchMap } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
@@ -55,6 +56,15 @@ import { LifecycleProject } from '../lifecycle-project.interface';
               </p>
             }
           </div>
+          <p-button
+            icon="pi pi-refresh"
+            [rounded]="true"
+            [text]="true"
+            severity="secondary"
+            (click)="refreshAttachments()"
+            pTooltip="Refresh"
+            [disabled]="loadingAttachments()"
+          />
         </div>
 
         <!-- Attachments Table -->
@@ -181,17 +191,30 @@ export class LifecycleAttachments {
 
   private loadAttachments(projectId: string): void {
     this.loadingAttachments.set(true);
-    this.attachmentsService.loadAttachments(projectId).subscribe({
-      next: (attachments) => {
-        this.attachments.set(attachments);
-        this.loadingAttachments.set(false);
-      },
-      error: () => this.loadingAttachments.set(false),
-    });
+    this.attachmentsService
+      .loadAttachments(projectId)
+      .pipe(
+        switchMap((attachments) =>
+          this.attachmentsService.syncPublishingStatuses(attachments, projectId),
+        ),
+      )
+      .subscribe({
+        next: (attachments) => {
+          this.attachments.set(attachments);
+          this.loadingAttachments.set(false);
+        },
+        error: () => this.loadingAttachments.set(false),
+      });
   }
 
   protected goBack(): void {
     this.router.navigate(['/csv/lifecycle', this.projectId]);
+  }
+
+  protected refreshAttachments(): void {
+    if (this.projectId) {
+      this.loadAttachments(this.projectId);
+    }
   }
 
   protected getStatusLabel(status: AttachmentStatus): string {
@@ -251,7 +274,7 @@ export class LifecycleAttachments {
         severity: 'danger',
       },
       accept: () => {
-        this.attachmentsService.deleteAttachment(attachment.id).subscribe({
+        this.attachmentsService.deleteAttachment(attachment.id, attachment.objectName).subscribe({
           next: () => this.loadAttachments(this.projectId),
         });
       },
