@@ -9,11 +9,14 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { DialogModule } from 'primeng/dialog';
 
 import { LifecycleAttachmentsService } from '../services/lifecycle-attachments.service';
 import { LifecycleProjectsService } from '../services/lifecycle-projects.service';
 import { LifecycleAttachment, AttachmentStatus } from '../lifecycle-attachment.interface';
 import { LifecycleProject } from '../lifecycle-project.interface';
+import { StorageService } from '@/core/services/storage.service';
+import { PdfViewerComponent } from '@/shared/components/pdf-viewer/pdf-viewer.component';
 
 @Component({
   selector: 'app-lifecycle-attachments',
@@ -25,6 +28,8 @@ import { LifecycleProject } from '../lifecycle-project.interface';
     TooltipModule,
     ConfirmDialogModule,
     ProgressSpinnerModule,
+    DialogModule,
+    PdfViewerComponent,
   ],
   providers: [ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -86,7 +91,10 @@ import { LifecycleProject } from '../lifecycle-project.interface';
           </ng-template>
 
           <ng-template #body let-attachment>
-            <tr>
+            <tr
+              class="cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800"
+              (click)="viewAttachment(attachment)"
+            >
               <td>
                 <div class="flex items-center gap-2">
                   <i class="pi pi-file-pdf text-red-500"></i>
@@ -117,7 +125,7 @@ import { LifecycleProject } from '../lifecycle-project.interface';
                       [text]="true"
                       size="small"
                       pTooltip="Download"
-                      (click)="downloadAttachment(attachment)"
+                      (click)="$event.stopPropagation(); downloadAttachment(attachment)"
                     />
                   }
                   <p-button
@@ -127,7 +135,7 @@ import { LifecycleProject } from '../lifecycle-project.interface';
                     severity="danger"
                     size="small"
                     pTooltip="Delete"
-                    (click)="confirmDelete(attachment)"
+                    (click)="$event.stopPropagation(); confirmDelete(attachment)"
                   />
                 </div>
               </td>
@@ -149,6 +157,25 @@ import { LifecycleProject } from '../lifecycle-project.interface';
     }
 
     <p-confirmDialog [key]="'attachment-dialog'" />
+
+    <!-- PDF Viewer Dialog -->
+    <p-dialog
+      [header]="pdfViewerTitle()"
+      [(visible)]="pdfDialogVisible"
+      [modal]="true"
+      [style]="{ width: '90vw', height: '90vh' }"
+      [draggable]="false"
+      [resizable]="false"
+      (onHide)="onPdfDialogHide()"
+    >
+      @if (pdfSrc()) {
+        <app-pdf-viewer [pdfSrc]="pdfSrc()!" />
+      } @else {
+        <div class="flex items-center justify-center h-full">
+          <p-progressSpinner ariaLabel="Loading PDF" />
+        </div>
+      }
+    </p-dialog>
   `,
 })
 export class LifecycleAttachments {
@@ -158,11 +185,17 @@ export class LifecycleAttachments {
   private readonly lifecycleService = inject(LifecycleProjectsService);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
+  private readonly storageService = inject(StorageService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly attachments = signal<LifecycleAttachment[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadingAttachments = signal(false);
+
+  // PDF Viewer State
+  protected readonly pdfDialogVisible = signal(false);
+  protected readonly pdfSrc = signal<string | null>(null);
+  protected readonly pdfViewerTitle = signal<string>('Document Viewer');
 
   private projectId = '';
 
@@ -249,12 +282,56 @@ export class LifecycleAttachments {
     return icons[status] ?? '';
   }
 
+  protected viewAttachment(attachment: LifecycleAttachment): void {
+    if (attachment.status !== 'published' || attachment.contentType !== 'application/pdf') {
+      return;
+    }
+
+    this.pdfViewerTitle.set(attachment.name);
+    this.pdfDialogVisible.set(true);
+
+    this.storageService.getDownloadUrl(attachment.objectName).subscribe({
+      next: (response) => {
+        this.pdfSrc.set(response.url);
+      },
+      error: (err) => {
+        console.error('Failed to get download URL', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load document for viewing.',
+        });
+        this.pdfDialogVisible.set(false);
+      },
+    });
+  }
+
+  protected onPdfDialogHide(): void {
+    this.pdfSrc.set(null);
+  }
+
   protected downloadAttachment(attachment: LifecycleAttachment): void {
-    // TODO: Implement download from storage using objectName
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Download',
-      detail: `Download for "${attachment.name}" will be implemented with storage integration.`,
+    if (attachment.status !== 'published') {
+      return;
+    }
+
+    this.storageService.getDownloadUrl(attachment.objectName).subscribe({
+      next: (response) => {
+        const link = document.createElement('a');
+        link.href = response.url;
+        link.download = attachment.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      },
+      error: (err) => {
+        console.error('Failed to download attachment', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to fetch download URL.',
+        });
+      },
     });
   }
 
