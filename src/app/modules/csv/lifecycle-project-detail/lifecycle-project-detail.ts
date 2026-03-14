@@ -149,9 +149,9 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
 
         <!-- Tabs for artifacts -->
         @if (showUrsTab()) {
-          <p-tabs value="0">
+          <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)">
             <p-tablist>
-              <p-tab value="0">
+              <p-tab value="urs">
                 <i class="pi pi-file-edit mr-2"></i>
                 User Requirements (URS)
               </p-tab>
@@ -185,9 +185,8 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
               </p-tab>
             </p-tablist>
             <p-tabpanels>
-
               <!-- URS Tab -->
-              <p-tabpanel value="0">
+              <p-tabpanel value="urs">
                 @if (ursArtifact()) {
                   <div class="mb-4">
                     <div class="flex justify-between items-center mt-4">
@@ -603,6 +602,8 @@ export class LifecycleProjectDetail {
   protected readonly publishDialogVisible = signal(false);
   protected readonly publishDialogPhase = signal<TestPhase>('iq');
 
+  protected readonly activeTab = signal<string>('urs');
+
   protected readonly rendererContext = computed(() => {
     const p = this.project();
     const org = this.organizationService.activeOrganization();
@@ -613,6 +614,13 @@ export class LifecycleProjectDetail {
   });
 
   constructor() {
+    this.route.queryParams.subscribe((params) => {
+      const tab = params['tab'];
+      if (tab) {
+        this.activeTab.set(tab);
+      }
+    });
+
     effect(() => {
       const projectId = this.route.snapshot.paramMap.get('projectId');
       if (projectId) {
@@ -773,10 +781,8 @@ export class LifecycleProjectDetail {
     phases.forEach((phase) => {
       const schemaName = `csv.test_protocol.${phase}`;
       this.customFieldsService.getSchemaByName(schemaName).subscribe({
-        next: (schema) =>
-          this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: schema })),
-        error: () =>
-          this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: null })),
+        next: (schema) => this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: schema })),
+        error: () => this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: null })),
       });
     });
   }
@@ -859,8 +865,7 @@ export class LifecycleProjectDetail {
         }));
         this.initializingTestProtocol.update((prev) => ({ ...prev, [phase]: false }));
       },
-      error: () =>
-        this.initializingTestProtocol.update((prev) => ({ ...prev, [phase]: false })),
+      error: () => this.initializingTestProtocol.update((prev) => ({ ...prev, [phase]: false })),
     });
   }
 
@@ -1093,9 +1098,7 @@ export class LifecycleProjectDetail {
           templateCode.startsWith('csv.test_protocol.')) &&
         fsCsArtifact
       ) {
-        const allFsCs = await firstValueFrom(
-          this.fsCsService.loadRequirements(fsCsArtifact.id),
-        );
+        const allFsCs = await firstValueFrom(this.fsCsService.loadRequirements(fsCsArtifact.id));
         allFsCs.forEach((f) => fsCsMap.set(f.id, { code: f.code, reqType: f.reqType }));
       }
 
@@ -1116,9 +1119,8 @@ export class LifecycleProjectDetail {
           traceUrs: (s.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
         }));
         customFields =
-          (fsCsArtifact.customFieldValues as Record<string, Record<string, unknown>>)?.[
-            fsCsType
-          ] || {};
+          (fsCsArtifact.customFieldValues as Record<string, Record<string, unknown>>)?.[fsCsType] ||
+          {};
       } else if (templateCode === 'csv.risk_analysis_artifact' && riskId) {
         const riskItems = await firstValueFrom(this.riskService.loadItems(riskId));
         items = riskItems.map((r) => ({
@@ -1281,9 +1283,7 @@ export class LifecycleProjectDetail {
       }
 
       if (fsCsArtifact) {
-        const allFsCs = await firstValueFrom(
-          this.fsCsService.loadRequirements(fsCsArtifact.id),
-        );
+        const allFsCs = await firstValueFrom(this.fsCsService.loadRequirements(fsCsArtifact.id));
         allFsCs.forEach((f) => fsCsMap.set(f.id, { code: f.code, reqType: f.reqType }));
       }
 
@@ -1413,6 +1413,18 @@ export class LifecycleProjectDetail {
   // ---------------------------------------------------------------------------
   // Navigation helpers
   // ---------------------------------------------------------------------------
+  protected onTabChange(tabValue: string | number | undefined): void {
+    if (tabValue === undefined) return;
+    const val = String(tabValue);
+    this.activeTab.set(val);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: val },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   protected goBack(): void {
     this.router.navigate(['/csv/lifecycle']);
   }
@@ -1424,13 +1436,12 @@ export class LifecycleProjectDetail {
   protected getTypeSeverity(
     type: string,
   ): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
-    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> =
-      {
-        validation: 'info',
-        periodic_review: 'success',
-        revalidation: 'warn',
-        retirement: 'danger',
-      };
+    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> = {
+      validation: 'info',
+      periodic_review: 'success',
+      revalidation: 'warn',
+      retirement: 'danger',
+    };
     return map[type] ?? 'secondary';
   }
 
@@ -1441,13 +1452,12 @@ export class LifecycleProjectDetail {
   protected getStatusSeverity(
     status: string,
   ): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
-    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> =
-      {
-        draft: 'secondary',
-        in_progress: 'info',
-        completed: 'success',
-        cancelled: 'danger',
-      };
+    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> = {
+      draft: 'secondary',
+      in_progress: 'info',
+      completed: 'success',
+      cancelled: 'danger',
+    };
     return map[status] ?? 'secondary';
   }
 }
