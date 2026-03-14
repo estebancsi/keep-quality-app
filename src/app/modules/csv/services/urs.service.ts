@@ -30,7 +30,11 @@ export class UrsService {
    * Get existing artifact or create one for the given lifecycle project.
    * Uses an upsert-like pattern: try select first, insert if not found.
    */
-  getOrCreateArtifact(lifecycleProjectId: string): Observable<UrsArtifact> {
+  /**
+   * Fetch an existing URS artifact for the given lifecycle project.
+   * Returns null if the artifact hasn't been created yet (never throws for 404).
+   */
+  getArtifact(lifecycleProjectId: string): Observable<UrsArtifact | null> {
     return defer(async () =>
       this.supabase
         .from('csv_urs_artifacts')
@@ -38,29 +42,41 @@ export class UrsService {
         .eq('lifecycle_project_id', lifecycleProjectId)
         .maybeSingle(),
     ).pipe(
-      switchMap(({ data, error }) => {
+      map(({ data, error }) => {
         if (error) throw error;
-        if (data) return [this.artifactToDomain(data as UrsArtifactDto)];
-
-        // Create new artifact
-        const tenantId = this.orgService.activeOrganizationId();
-        return defer(async () =>
-          this.supabase
-            .from('csv_urs_artifacts')
-            .insert({
-              tenant_id: tenantId,
-              lifecycle_project_id: lifecycleProjectId,
-            })
-            .select('*')
-            .single(),
-        ).pipe(
-          map(({ data: created, error: insertError }) => {
-            if (insertError) throw insertError;
-            return this.artifactToDomain(created as UrsArtifactDto);
-          }),
-        );
+        return data ? this.artifactToDomain(data as UrsArtifactDto) : null;
       }),
-      catchError((error) => this.handleError(error, 'Get/Create URS Artifact')),
+      catchError((error) => this.handleError(error, 'Get URS Artifact')),
+    );
+  }
+
+  /**
+   * Create a new URS artifact for the given lifecycle project.
+   * Caller is responsible for ensuring it doesn't already exist.
+   */
+  createArtifact(lifecycleProjectId: string): Observable<UrsArtifact> {
+    const tenantId = this.orgService.activeOrganizationId();
+    return defer(async () =>
+      this.supabase
+        .from('csv_urs_artifacts')
+        .insert({ tenant_id: tenantId, lifecycle_project_id: lifecycleProjectId })
+        .select('*')
+        .single(),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return this.artifactToDomain(data as UrsArtifactDto);
+      }),
+      catchError((error) => this.handleError(error, 'Create URS Artifact')),
+    );
+  }
+
+  /** @deprecated Use getArtifact() + createArtifact() separately. */
+  getOrCreateArtifact(lifecycleProjectId: string): Observable<UrsArtifact> {
+    return this.getArtifact(lifecycleProjectId).pipe(
+      switchMap((artifact) =>
+        artifact ? [artifact] : this.createArtifact(lifecycleProjectId),
+      ),
     );
   }
 

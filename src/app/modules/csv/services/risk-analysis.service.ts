@@ -23,7 +23,11 @@ export class RiskAnalysisService {
   /**
    * Get existing artifact or create one for the given lifecycle project.
    */
-  getOrCreateArtifact(lifecycleProjectId: string): Observable<RiskAnalysisArtifact> {
+  /**
+   * Fetch an existing Risk Analysis artifact for the given lifecycle project.
+   * Returns null if the artifact hasn't been created yet (never throws for 404).
+   */
+  getArtifact(lifecycleProjectId: string): Observable<RiskAnalysisArtifact | null> {
     return defer(async () =>
       this.supabase
         .from('csv_risk_analysis_artifacts')
@@ -31,29 +35,40 @@ export class RiskAnalysisService {
         .eq('lifecycle_project_id', lifecycleProjectId)
         .maybeSingle(),
     ).pipe(
-      switchMap(({ data, error }) => {
+      map(({ data, error }) => {
         if (error) throw error;
-        if (data) return [this.artifactToDomain(data as RiskAnalysisArtifactDto)];
-
-        // Create new artifact
-        const tenantId = this.orgService.activeOrganizationId();
-        return defer(async () =>
-          this.supabase
-            .from('csv_risk_analysis_artifacts')
-            .insert({
-              tenant_id: tenantId,
-              lifecycle_project_id: lifecycleProjectId,
-            })
-            .select('*')
-            .single(),
-        ).pipe(
-          map(({ data: created, error: insertError }) => {
-            if (insertError) throw insertError;
-            return this.artifactToDomain(created as RiskAnalysisArtifactDto);
-          }),
-        );
+        return data ? this.artifactToDomain(data as RiskAnalysisArtifactDto) : null;
       }),
-      catchError((error) => this.handleError(error, 'Get/Create Risk Analysis Artifact')),
+      catchError((error) => this.handleError(error, 'Get Risk Analysis Artifact')),
+    );
+  }
+
+  /**
+   * Create a new Risk Analysis artifact for the given lifecycle project.
+   */
+  createArtifact(lifecycleProjectId: string): Observable<RiskAnalysisArtifact> {
+    const tenantId = this.orgService.activeOrganizationId();
+    return defer(async () =>
+      this.supabase
+        .from('csv_risk_analysis_artifacts')
+        .insert({ tenant_id: tenantId, lifecycle_project_id: lifecycleProjectId })
+        .select('*')
+        .single(),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return this.artifactToDomain(data as RiskAnalysisArtifactDto);
+      }),
+      catchError((error) => this.handleError(error, 'Create Risk Analysis Artifact')),
+    );
+  }
+
+  /** @deprecated Use getArtifact() + createArtifact() separately. */
+  getOrCreateArtifact(lifecycleProjectId: string): Observable<RiskAnalysisArtifact> {
+    return this.getArtifact(lifecycleProjectId).pipe(
+      switchMap((artifact) =>
+        artifact ? [artifact] : this.createArtifact(lifecycleProjectId),
+      ),
     );
   }
 

@@ -52,6 +52,7 @@ import { LifecycleAttachmentsService } from '../services/lifecycle-attachments.s
 import { PublishTestResultsDialogComponent } from './components/publish-test-results-dialog';
 import { MessageService } from 'primeng/api';
 import { TooltipModule } from 'primeng/tooltip';
+import { ArtifactInitPlaceholderComponent } from './components/artifact-init-placeholder.component';
 
 @Component({
   selector: 'app-lifecycle-project-detail',
@@ -70,6 +71,7 @@ import { TooltipModule } from 'primeng/tooltip';
     CsvRolesPermissionsWrapperComponent,
     PublishTestResultsDialogComponent,
     TooltipModule,
+    ArtifactInitPlaceholderComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -179,58 +181,14 @@ import { TooltipModule } from 'primeng/tooltip';
               }
               <p-tab value="roles-permissions">
                 <i class="pi pi-key mr-2"></i>
-                Roles & Permissions
+                Roles &amp; Permissions
               </p-tab>
             </p-tablist>
             <p-tabpanels>
+
+              <!-- URS Tab -->
               <p-tabpanel value="0">
-                <!-- Custom fields section (hidden if no schema exists) -->
-
-                <div class="mb-4">
-                  <div class="flex justify-between items-center mt-4">
-                    <h3 class="text-lg font-semibold">Document Properties</h3>
-                    <div class="flex justify-end gap-2">
-                      <p-button
-                        label="Edit PDF"
-                        icon="pi pi-pencil"
-                        [outlined]="true"
-                        size="small"
-                        (click)="editPdf('csv.urs_artifact')"
-                      />
-                      <p-button
-                        label="Generate PDF"
-                        icon="pi pi-file-pdf"
-                        [outlined]="true"
-                        size="small"
-                        [loading]="generatingPdf() === 'csv.urs_artifact'"
-                        (click)="generatePdf('csv.urs_artifact')"
-                      />
-                      @if (customFieldsSchema(); as schema) {
-                        <p-button
-                          label="Save Properties"
-                          icon="pi pi-save"
-                          [loading]="savingCustomFields()"
-                          (click)="saveCustomFields()"
-                          size="small"
-                        />
-                      }
-                    </div>
-                  </div>
-                  @if (customFieldsSchema(); as schema) {
-                    <app-custom-fields-renderer
-                      [schema]="schema"
-                      [values]="customFieldValues()"
-                      [context]="rendererContext()"
-                      (valuesChange)="onCustomFieldsChanged($event)"
-                    />
-                  }
-                </div>
-
-                <app-urs-requirements-table [lifecycleProjectId]="p.id" [system]="p.system" />
-              </p-tabpanel>
-
-              @if (showValidationPlanTab()) {
-                <p-tabpanel value="validation-plan">
+                @if (ursArtifact()) {
                   <div class="mb-4">
                     <div class="flex justify-between items-center mt-4">
                       <h3 class="text-lg font-semibold">Document Properties</h3>
@@ -240,137 +198,228 @@ import { TooltipModule } from 'primeng/tooltip';
                           icon="pi pi-pencil"
                           [outlined]="true"
                           size="small"
-                          (click)="editPdf('csv.validation_plan')"
+                          (click)="editPdf('csv.urs_artifact')"
                         />
                         <p-button
                           label="Generate PDF"
                           icon="pi pi-file-pdf"
                           [outlined]="true"
                           size="small"
-                          [loading]="generatingPdf() === 'csv.validation_plan'"
-                          (click)="generatePdf('csv.validation_plan')"
+                          [loading]="generatingPdf() === 'csv.urs_artifact'"
+                          (click)="generatePdf('csv.urs_artifact')"
                         />
-                        @if (validationPlanSchema(); as schema) {
+                        @if (customFieldsSchema(); as schema) {
                           <p-button
                             label="Save Properties"
                             icon="pi pi-save"
-                            [loading]="savingValidationPlan()"
-                            (click)="saveValidationPlan()"
+                            [loading]="savingCustomFields()"
+                            (click)="saveCustomFields()"
                             size="small"
                           />
                         }
                       </div>
                     </div>
-                    @if (validationPlanSchema(); as schema) {
+                    @if (customFieldsSchema(); as schema) {
                       <app-custom-fields-renderer
                         [schema]="schema"
-                        [values]="validationPlanValues()"
+                        [values]="customFieldValues()"
                         [context]="rendererContext()"
-                        (valuesChange)="onValidationPlanValuesChanged($event)"
+                        (valuesChange)="onCustomFieldsChanged($event)"
                       />
-                    } @else if (!loading()) {
-                      <div class="text-surface-500 italic mt-4">
-                        Failed to load Validation Plan schema.
-                      </div>
                     }
                   </div>
+                  <app-urs-requirements-table [lifecycleProjectId]="p.id" [system]="p.system" />
+                } @else {
+                  <app-artifact-init-placeholder
+                    label="User Requirements (URS)"
+                    [initializing]="initializingUrs()"
+                    (initialize)="initializeUrs()"
+                  />
+                }
+              </p-tabpanel>
+
+              <!-- Validation Plan Tab -->
+              @if (showValidationPlanTab()) {
+                <p-tabpanel value="validation-plan">
+                  @defer {
+                    @if (validationPlanArtifact()) {
+                      <div class="mb-4">
+                        <div class="flex justify-between items-center mt-4">
+                          <h3 class="text-lg font-semibold">Document Properties</h3>
+                          <div class="flex justify-end gap-2">
+                            <p-button
+                              label="Edit PDF"
+                              icon="pi pi-pencil"
+                              [outlined]="true"
+                              size="small"
+                              (click)="editPdf('csv.validation_plan')"
+                            />
+                            <p-button
+                              label="Generate PDF"
+                              icon="pi pi-file-pdf"
+                              [outlined]="true"
+                              size="small"
+                              [loading]="generatingPdf() === 'csv.validation_plan'"
+                              (click)="generatePdf('csv.validation_plan')"
+                            />
+                            @if (validationPlanSchema(); as schema) {
+                              <p-button
+                                label="Save Properties"
+                                icon="pi pi-save"
+                                [loading]="savingValidationPlan()"
+                                (click)="saveValidationPlan()"
+                                size="small"
+                              />
+                            }
+                          </div>
+                        </div>
+                        @if (validationPlanSchema(); as schema) {
+                          <app-custom-fields-renderer
+                            [schema]="schema"
+                            [values]="validationPlanValues()"
+                            [context]="rendererContext()"
+                            (valuesChange)="onValidationPlanValuesChanged($event)"
+                          />
+                        }
+                      </div>
+                    } @else {
+                      <app-artifact-init-placeholder
+                        label="Validation Plan"
+                        [initializing]="initializingValidationPlan()"
+                        (initialize)="initializeValidationPlan()"
+                      />
+                    }
+                  } @placeholder {
+                    <div class="py-8 text-center text-surface-400">Loading...</div>
+                  }
                 </p-tabpanel>
               }
 
+              <!-- Risk Analysis Tab -->
               @if (showRiskTab()) {
                 <p-tabpanel value="risk-analysis">
-                  <div class="flex justify-end my-4 gap-2">
-                    <p-button
-                      label="Edit PDF"
-                      icon="pi pi-pencil"
-                      [outlined]="true"
-                      size="small"
-                      (click)="editPdf('csv.risk_analysis_artifact')"
-                    />
-                    <p-button
-                      label="Generate PDF"
-                      icon="pi pi-file-pdf"
-                      [outlined]="true"
-                      size="small"
-                      [loading]="generatingPdf() === 'csv.risk_analysis_artifact'"
-                      (click)="generatePdf('csv.risk_analysis_artifact')"
-                    />
-                  </div>
-                  <app-risk-analysis-table
-                    [lifecycleProjectId]="p.id"
-                    [systemCategory]="p.system?.categoryCode"
-                    [system]="p.system"
-                  />
-                </p-tabpanel>
-              }
-
-              @for (phase of testPhases(); track phase) {
-                <p-tabpanel [value]="'test-' + phase">
-                  <div class="mb-4">
-                    <div class="flex justify-between items-center mt-4">
-                      <h3 class="text-lg font-semibold">{{ phase | uppercase }} Properties</h3>
-                      <div class="flex justify-end gap-2">
+                  @defer {
+                    @if (riskAnalysisArtifactId()) {
+                      <div class="flex justify-end my-4 gap-2">
                         <p-button
                           label="Edit PDF"
                           icon="pi pi-pencil"
-                          size="small"
                           [outlined]="true"
-                          (click)="editPdf('csv.test_protocol.' + phase)"
+                          size="small"
+                          (click)="editPdf('csv.risk_analysis_artifact')"
                         />
                         <p-button
                           label="Generate PDF"
                           icon="pi pi-file-pdf"
-                          size="small"
                           [outlined]="true"
-                          [loading]="generatingPdf() === 'csv.test_protocol.' + phase"
-                          (click)="generatePdf('csv.test_protocol.' + phase, undefined, phase)"
-                        />
-                        <p-button
-                          label="Edit PDF"
-                          icon="pi pi-pencil"
                           size="small"
-                          [outlined]="true"
-                          (click)="editPdf('csv.test_results.' + phase)"
-                          pTooltip="Edit test results PDF template"
+                          [loading]="generatingPdf() === 'csv.risk_analysis_artifact'"
+                          (click)="generatePdf('csv.risk_analysis_artifact')"
                         />
-                        <p-button
-                          label="Publish Results"
-                          icon="pi pi-cloud-upload"
-                          size="small"
-                          [outlined]="true"
-                          [loading]="publishingResults() === phase"
-                          (click)="openPublishDialog(phase)"
-                          pTooltip="Publish test results as PDF attachment"
-                        />
-                        @if (testProtocolSchemas()[phase]; as schema) {
-                          <p-button
-                            label="Save Properties"
-                            icon="pi pi-save"
-                            [loading]="savingTestProtocols()[phase] || false"
-                            (click)="saveTestProtocolFields(phase)"
-                            size="small"
-                            [outlined]="true"
-                          />
-                        }
                       </div>
-                    </div>
-                    @if (testProtocolSchemas()[phase]; as schema) {
-                      <app-custom-fields-renderer
-                        [schema]="schema"
-                        [values]="testProtocolValues()[phase] || {}"
-                        [context]="rendererContext()"
-                        (valuesChange)="onTestProtocolValuesChanged(phase, $event)"
+                      <app-risk-analysis-table
+                        [lifecycleProjectId]="p.id"
+                        [systemCategory]="p.system?.categoryCode"
+                        [system]="p.system"
+                      />
+                    } @else {
+                      <app-artifact-init-placeholder
+                        label="Risk Analysis (FMEA)"
+                        [initializing]="initializingRisk()"
+                        (initialize)="initializeRisk()"
                       />
                     }
-                  </div>
-                  <app-test-verification-table [lifecycleProjectId]="p.id" [phase]="phase" />
+                  } @placeholder {
+                    <div class="py-8 text-center text-surface-400">Loading...</div>
+                  }
                 </p-tabpanel>
               }
 
+              <!-- Test Protocol Tabs -->
+              @for (phase of testPhases(); track phase) {
+                <p-tabpanel [value]="'test-' + phase">
+                  @defer {
+                    @if (testProtocolArtifacts()[phase]) {
+                      <div class="mb-4">
+                        <div class="flex justify-between items-center mt-4">
+                          <h3 class="text-lg font-semibold">{{ phase | uppercase }} Properties</h3>
+                          <div class="flex justify-end gap-2">
+                            <p-button
+                              label="Edit PDF"
+                              icon="pi pi-pencil"
+                              size="small"
+                              [outlined]="true"
+                              (click)="editPdf('csv.test_protocol.' + phase)"
+                            />
+                            <p-button
+                              label="Generate PDF"
+                              icon="pi pi-file-pdf"
+                              size="small"
+                              [outlined]="true"
+                              [loading]="generatingPdf() === 'csv.test_protocol.' + phase"
+                              (click)="generatePdf('csv.test_protocol.' + phase, undefined, phase)"
+                            />
+                            <p-button
+                              label="Edit PDF"
+                              icon="pi pi-pencil"
+                              size="small"
+                              [outlined]="true"
+                              (click)="editPdf('csv.test_results.' + phase)"
+                              pTooltip="Edit test results PDF template"
+                            />
+                            <p-button
+                              label="Publish Results"
+                              icon="pi pi-cloud-upload"
+                              size="small"
+                              [outlined]="true"
+                              [loading]="publishingResults() === phase"
+                              (click)="openPublishDialog(phase)"
+                              pTooltip="Publish test results as PDF attachment"
+                            />
+                            @if (testProtocolSchemas()[phase]; as schema) {
+                              <p-button
+                                label="Save Properties"
+                                icon="pi pi-save"
+                                [loading]="savingTestProtocols()[phase] || false"
+                                (click)="saveTestProtocolFields(phase)"
+                                size="small"
+                                [outlined]="true"
+                              />
+                            }
+                          </div>
+                        </div>
+                        @if (testProtocolSchemas()[phase]; as schema) {
+                          <app-custom-fields-renderer
+                            [schema]="schema"
+                            [values]="testProtocolValues()[phase] || {}"
+                            [context]="rendererContext()"
+                            (valuesChange)="onTestProtocolValuesChanged(phase, $event)"
+                          />
+                        }
+                      </div>
+                      <app-test-verification-table [lifecycleProjectId]="p.id" [phase]="phase" />
+                    } @else {
+                      <app-artifact-init-placeholder
+                        [label]="(phase | uppercase) + ' Protocol'"
+                        [initializing]="initializingTestProtocol()[phase] || false"
+                        (initialize)="initializeTestProtocol(phase)"
+                      />
+                    }
+                  } @placeholder {
+                    <div class="py-8 text-center text-surface-400">Loading...</div>
+                  }
+                </p-tabpanel>
+              }
+
+              <!-- Roles & Permissions Tab -->
               <p-tabpanel value="roles-permissions">
-                <div class="mt-4">
-                  <app-csv-roles-permissions-wrapper [projectId]="p.id" />
-                </div>
+                @defer {
+                  <div class="mt-4">
+                    <app-csv-roles-permissions-wrapper [projectId]="p.id" />
+                  </div>
+                } @placeholder {
+                  <div class="py-8 text-center text-surface-400">Loading...</div>
+                }
               </p-tabpanel>
 
               <app-publish-test-results-dialog
@@ -380,65 +429,78 @@ import { TooltipModule } from 'primeng/tooltip';
                 (publish)="publishTestResults($event)"
               />
 
+              <!-- FS/CS Tab -->
               @if (showFsCsTab()) {
                 <p-tabpanel value="fs-cs">
-                  <div class="flex flex-col gap-8 mt-4">
-                    @for (type of fsCsReqTypes(); track type) {
-                      <div>
-                        <!-- Custom Fields for this Type -->
-                        <div
-                          class="mb-4 p-4 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700"
-                        >
-                          <div class="flex justify-between items-center">
-                            <h4 class="text-base font-semibold mb-3">
-                              {{ type }} Specification Properties
-                            </h4>
-                            <div class="flex justify-end mt-2 gap-2">
-                              <p-button
-                                label="Edit PDF"
-                                icon="pi pi-pencil"
-                                size="small"
-                                [outlined]="true"
-                                (click)="editPdf('csv.spec.' + type.toLowerCase())"
-                              />
-                              <p-button
-                                label="Generate PDF"
-                                icon="pi pi-file-pdf"
-                                size="small"
-                                [outlined]="true"
-                                [loading]="generatingPdf() === 'csv.spec.' + type.toLowerCase()"
-                                (click)="generatePdf('csv.spec.' + type.toLowerCase(), type)"
-                              />
+                  @defer {
+                    @if (fsCsArtifact()) {
+                      <div class="flex flex-col gap-8 mt-4">
+                        @for (type of fsCsReqTypes(); track type) {
+                          <div>
+                            <!-- Custom Fields for this Type -->
+                            <div
+                              class="mb-4 p-4 border rounded-lg bg-surface-50 dark:bg-surface-900 border-surface-200 dark:border-surface-700"
+                            >
+                              <div class="flex justify-between items-center">
+                                <h4 class="text-base font-semibold mb-3">
+                                  {{ type }} Specification Properties
+                                </h4>
+                                <div class="flex justify-end mt-2 gap-2">
+                                  <p-button
+                                    label="Edit PDF"
+                                    icon="pi pi-pencil"
+                                    size="small"
+                                    [outlined]="true"
+                                    (click)="editPdf('csv.spec.' + type.toLowerCase())"
+                                  />
+                                  <p-button
+                                    label="Generate PDF"
+                                    icon="pi pi-file-pdf"
+                                    size="small"
+                                    [outlined]="true"
+                                    [loading]="generatingPdf() === 'csv.spec.' + type.toLowerCase()"
+                                    (click)="generatePdf('csv.spec.' + type.toLowerCase(), type)"
+                                  />
+                                  @if (fsCsSchemas()[type]; as schema) {
+                                    <p-button
+                                      label="Save {{ type }} Properties"
+                                      icon="pi pi-save"
+                                      [loading]="savingFsCs()[type] || false"
+                                      (click)="saveFsCsFields(type)"
+                                      size="small"
+                                      [outlined]="true"
+                                    />
+                                  }
+                                </div>
+                              </div>
                               @if (fsCsSchemas()[type]; as schema) {
-                                <p-button
-                                  label="Save {{ type }} Properties"
-                                  icon="pi pi-save"
-                                  [loading]="savingFsCs()[type] || false"
-                                  (click)="saveFsCsFields(type)"
-                                  size="small"
-                                  [outlined]="true"
+                                <app-custom-fields-renderer
+                                  [schema]="schema"
+                                  [values]="fsCsValues()[type] || {}"
+                                  [context]="rendererContext()"
+                                  (valuesChange)="onFsCsValuesChanged(type, $event)"
                                 />
                               }
+
+                              <app-fs-cs-requirements-table
+                                [lifecycleProjectId]="p.id"
+                                [reqType]="type"
+                                [title]="type + ' Specification'"
+                              />
                             </div>
                           </div>
-                          @if (fsCsSchemas()[type]; as schema) {
-                            <app-custom-fields-renderer
-                              [schema]="schema"
-                              [values]="fsCsValues()[type] || {}"
-                              [context]="rendererContext()"
-                              (valuesChange)="onFsCsValuesChanged(type, $event)"
-                            />
-                          }
-
-                          <app-fs-cs-requirements-table
-                            [lifecycleProjectId]="p.id"
-                            [reqType]="type"
-                            [title]="type + ' Specification'"
-                          />
-                        </div>
+                        }
                       </div>
+                    } @else {
+                      <app-artifact-init-placeholder
+                        label="FS / CS / DS"
+                        [initializing]="initializingFsCs()"
+                        (initialize)="initializeFsCs()"
+                      />
                     }
-                  </div>
+                  } @placeholder {
+                    <div class="py-8 text-center text-surface-400">Loading...</div>
+                  }
                 </p-tabpanel>
               }
             </p-tabpanels>
@@ -498,14 +560,16 @@ export class LifecycleProjectDetail {
   /** Saving state for custom fields */
   protected readonly savingCustomFields = signal(false);
 
-  /** The URS artifact for persisting custom field values */
-  private ursArtifact: UrsArtifact | null = null;
+  /** The URS artifact — null means not initialized yet */
+  protected readonly ursArtifact = signal<UrsArtifact | null>(null);
+  protected readonly initializingUrs = signal(false);
 
   // Validation Plan State
   protected readonly validationPlanSchema = signal<CustomFieldsSchema | null>(null);
   protected readonly validationPlanValues = signal<Record<string, unknown>>({});
   protected readonly savingValidationPlan = signal(false);
-  private validationPlanArtifact: ValidationPlanArtifact | null = null;
+  protected readonly validationPlanArtifact = signal<ValidationPlanArtifact | null>(null);
+  protected readonly initializingValidationPlan = signal(false);
 
   // Export / Import State
   protected readonly isExporting = signal(false);
@@ -516,15 +580,20 @@ export class LifecycleProjectDetail {
   protected readonly fsCsSchemas = signal<Record<string, CustomFieldsSchema | null>>({});
   protected readonly fsCsValues = signal<Record<string, Record<string, unknown>>>({});
   protected readonly savingFsCs = signal<Record<string, boolean>>({});
-  private fsCsArtifact: FsCsArtifact | null = null;
-  private riskAnalysisArtifactId: string | null = null;
+  protected readonly fsCsArtifact = signal<FsCsArtifact | null>(null);
+  protected readonly initializingFsCs = signal(false);
+
+  // Risk Analysis State
+  protected readonly riskAnalysisArtifactId = signal<string | null>(null);
+  protected readonly initializingRisk = signal(false);
 
   // Test Protocols State
   protected readonly testPhases = signal<TestPhase[]>([]);
   protected readonly testProtocolSchemas = signal<Record<string, CustomFieldsSchema | null>>({});
   protected readonly testProtocolValues = signal<Record<string, Record<string, unknown>>>({});
   protected readonly savingTestProtocols = signal<Record<string, boolean>>({});
-  private testProtocolArtifacts: Record<string, TestProtocol> = {};
+  protected readonly testProtocolArtifacts = signal<Record<string, TestProtocol>>({});
+  protected readonly initializingTestProtocol = signal<Record<string, boolean>>({});
 
   // PDF Generation State
   protected readonly generatingPdf = signal<string | null>(null);
@@ -554,9 +623,19 @@ export class LifecycleProjectDetail {
     });
   }
 
+  // ---------------------------------------------------------------------------
   // Reload Logic
+  // ---------------------------------------------------------------------------
   private reloadProjectData(projectId: string) {
     this.loading.set(true);
+
+    // Reset artifact signals so tabs show the initialize placeholder
+    this.ursArtifact.set(null);
+    this.validationPlanArtifact.set(null);
+    this.fsCsArtifact.set(null);
+    this.riskAnalysisArtifactId.set(null);
+    this.testProtocolArtifacts.set({});
+
     this.lifecycleService.getProject(projectId).subscribe({
       next: (p) => {
         this.project.set(p);
@@ -564,11 +643,6 @@ export class LifecycleProjectDetail {
         this.showUrsTab.set(isValidation);
         this.showValidationPlanTab.set(isValidation);
         this.showRiskTab.set(isValidation);
-
-        if (isValidation) {
-          this.loadRiskArtifact(p.id);
-          this.loadValidationPlanData(p.id);
-        }
 
         const categoryCode = p.system?.categoryCode;
         if (isValidation && (categoryCode === 4 || categoryCode === 5)) {
@@ -578,7 +652,6 @@ export class LifecycleProjectDetail {
           } else {
             this.fsCsReqTypes.set(['Functional', 'Design']);
           }
-          this.loadFsCsData(p.id, this.fsCsReqTypes());
         } else {
           this.showFsCsTab.set(false);
           this.fsCsReqTypes.set([]);
@@ -592,14 +665,20 @@ export class LifecycleProjectDetail {
           } else {
             this.testPhases.set([]);
           }
-          this.loadTestProtocolsData(p.id, this.testPhases());
         }
 
         this.loading.set(false);
 
+        // Load schemas eagerly (metadata only, no artifact dependency)
         if (isValidation) {
           this.loadCustomFieldsSchema();
-          this.loadUrsArtifact(p.id);
+          this.loadValidationPlanSchema();
+          this.loadFsCsSchemas(this.fsCsReqTypes());
+          this.loadTestProtocolSchemas(this.testPhases());
+
+          // Eagerly check if artifacts already exist — auto-populate tabs without requiring
+          // the user to click Initialize for already-created artifacts.
+          this.loadExistingArtifacts(p.id);
         }
       },
       error: () => {
@@ -609,6 +688,63 @@ export class LifecycleProjectDetail {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Eager artifact fetch for existing projects
+  // ---------------------------------------------------------------------------
+  private loadExistingArtifacts(projectId: string): void {
+    this.ursService.getArtifact(projectId).subscribe({
+      next: (a) => {
+        if (a) {
+          this.ursArtifact.set(a);
+          this.customFieldValues.set(a.customFieldValues ?? {});
+        }
+      },
+    });
+
+    this.validationPlanService.getArtifact(projectId).subscribe({
+      next: (a) => {
+        if (a) {
+          this.validationPlanArtifact.set(a);
+          this.validationPlanValues.set(a.customFieldValues ?? {});
+        }
+      },
+    });
+
+    this.fsCsService.getArtifact(projectId).subscribe({
+      next: (a) => {
+        if (a) {
+          this.fsCsArtifact.set(a);
+          this.fsCsValues.set(
+            (a.customFieldValues as Record<string, Record<string, unknown>>) ?? {},
+          );
+        }
+      },
+    });
+
+    this.riskService.getArtifact(projectId).subscribe({
+      next: (a) => {
+        if (a) this.riskAnalysisArtifactId.set(a.id);
+      },
+    });
+
+    this.testPhases().forEach((phase) => {
+      this.testProtocolService.getArtifact(projectId, phase).subscribe({
+        next: (a) => {
+          if (a) {
+            this.testProtocolArtifacts.update((prev) => ({ ...prev, [phase]: a }));
+            this.testProtocolValues.update((prev) => ({
+              ...prev,
+              [phase]: (a.customFieldValues as Record<string, unknown>) ?? {},
+            }));
+          }
+        },
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Schema Loading (metadata only, no artifact calls)
+  // ---------------------------------------------------------------------------
   private loadCustomFieldsSchema(): void {
     this.customFieldsService.getSchemaByName('csv.urs_artifact').subscribe({
       next: (schema) => this.customFieldsSchema.set(schema),
@@ -616,72 +752,157 @@ export class LifecycleProjectDetail {
     });
   }
 
-  private loadUrsArtifact(projectId: string): void {
-    this.ursService.getOrCreateArtifact(projectId).subscribe({
+  private loadValidationPlanSchema(): void {
+    this.customFieldsService.getSchemaByName('csv.validation_plan').subscribe({
+      next: (schema) => this.validationPlanSchema.set(schema),
+      error: () => this.validationPlanSchema.set(null),
+    });
+  }
+
+  private loadFsCsSchemas(types: FsCsRequirementType[]): void {
+    types.forEach((type) => {
+      const schemaName = `csv.spec.${type.toLowerCase()}`;
+      this.customFieldsService.getSchemaByName(schemaName).subscribe({
+        next: (schema) => this.fsCsSchemas.update((prev) => ({ ...prev, [type]: schema })),
+        error: () => this.fsCsSchemas.update((prev) => ({ ...prev, [type]: null })),
+      });
+    });
+  }
+
+  private loadTestProtocolSchemas(phases: TestPhase[]): void {
+    phases.forEach((phase) => {
+      const schemaName = `csv.test_protocol.${phase}`;
+      this.customFieldsService.getSchemaByName(schemaName).subscribe({
+        next: (schema) =>
+          this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: schema })),
+        error: () =>
+          this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: null })),
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-tab Initialization (on-demand artifact creation)
+  // ---------------------------------------------------------------------------
+  protected initializeUrs(): void {
+    const p = this.project();
+    if (!p || this.initializingUrs()) return;
+
+    this.initializingUrs.set(true);
+    this.ursService.createArtifact(p.id).subscribe({
       next: (artifact) => {
-        this.ursArtifact = artifact;
+        this.ursArtifact.set(artifact);
         this.customFieldValues.set(artifact.customFieldValues ?? {});
+        this.initializingUrs.set(false);
       },
+      error: () => this.initializingUrs.set(false),
     });
   }
 
-  private loadRiskArtifact(projectId: string): void {
-    this.riskService.getOrCreateArtifact(projectId).subscribe({
+  protected initializeValidationPlan(): void {
+    const p = this.project();
+    if (!p || this.initializingValidationPlan()) return;
+
+    this.initializingValidationPlan.set(true);
+    this.validationPlanService.createArtifact(p.id).subscribe({
       next: (artifact) => {
-        this.riskAnalysisArtifactId = artifact.id;
+        this.validationPlanArtifact.set(artifact);
+        this.validationPlanValues.set(artifact.customFieldValues ?? {});
+        this.initializingValidationPlan.set(false);
       },
+      error: () => this.initializingValidationPlan.set(false),
     });
   }
 
+  protected initializeFsCs(): void {
+    const p = this.project();
+    if (!p || this.initializingFsCs()) return;
+
+    this.initializingFsCs.set(true);
+    this.fsCsService.createArtifact(p.id).subscribe({
+      next: (artifact) => {
+        this.fsCsArtifact.set(artifact);
+        const currentVals =
+          (artifact.customFieldValues as Record<string, Record<string, unknown>>) || {};
+        this.fsCsValues.set(currentVals);
+        this.initializingFsCs.set(false);
+      },
+      error: () => this.initializingFsCs.set(false),
+    });
+  }
+
+  protected initializeRisk(): void {
+    const p = this.project();
+    if (!p || this.initializingRisk()) return;
+
+    this.initializingRisk.set(true);
+    this.riskService.createArtifact(p.id).subscribe({
+      next: (artifact) => {
+        this.riskAnalysisArtifactId.set(artifact.id);
+        this.initializingRisk.set(false);
+      },
+      error: () => this.initializingRisk.set(false),
+    });
+  }
+
+  protected initializeTestProtocol(phase: string): void {
+    const p = this.project();
+    if (!p || this.initializingTestProtocol()[phase]) return;
+
+    this.initializingTestProtocol.update((prev) => ({ ...prev, [phase]: true }));
+    this.testProtocolService.createArtifact(p.id, phase as TestPhase).subscribe({
+      next: (artifact) => {
+        this.testProtocolArtifacts.update((prev) => ({ ...prev, [phase]: artifact }));
+        this.testProtocolValues.update((prev) => ({
+          ...prev,
+          [phase]: (artifact.customFieldValues as Record<string, unknown>) || {},
+        }));
+        this.initializingTestProtocol.update((prev) => ({ ...prev, [phase]: false }));
+      },
+      error: () =>
+        this.initializingTestProtocol.update((prev) => ({ ...prev, [phase]: false })),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Custom Fields – URS
+  // ---------------------------------------------------------------------------
   protected onCustomFieldsChanged(values: Record<string, unknown>): void {
     this.customFieldValues.set(values);
   }
 
   protected saveCustomFields(): void {
-    if (!this.ursArtifact) return;
+    const artifact = this.ursArtifact();
+    if (!artifact) return;
 
     this.savingCustomFields.set(true);
-    this.ursService
-      .updateArtifactCustomFields(this.ursArtifact.id, this.customFieldValues())
-      .subscribe({
-        next: (updated) => {
-          this.ursArtifact = updated;
-          this.customFieldValues.set(updated.customFieldValues ?? {});
-          this.savingCustomFields.set(false);
-        },
-        error: () => this.savingCustomFields.set(false),
-      });
-  }
-
-  private loadValidationPlanData(projectId: string): void {
-    // Load schema
-    this.customFieldsService.getSchemaByName('csv.validation_plan').subscribe({
-      next: (schema) => this.validationPlanSchema.set(schema),
-      error: () => this.validationPlanSchema.set(null),
-    });
-
-    // Load artifact
-    this.validationPlanService.getOrCreateArtifact(projectId).subscribe({
-      next: (artifact) => {
-        this.validationPlanArtifact = artifact;
-        this.validationPlanValues.set(artifact.customFieldValues ?? {});
+    this.ursService.updateArtifactCustomFields(artifact.id, this.customFieldValues()).subscribe({
+      next: (updated) => {
+        this.ursArtifact.set(updated);
+        this.customFieldValues.set(updated.customFieldValues ?? {});
+        this.savingCustomFields.set(false);
       },
+      error: () => this.savingCustomFields.set(false),
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Custom Fields – Validation Plan
+  // ---------------------------------------------------------------------------
   protected onValidationPlanValuesChanged(values: Record<string, unknown>): void {
     this.validationPlanValues.set(values);
   }
 
   protected saveValidationPlan(): void {
-    if (!this.validationPlanArtifact) return;
+    const artifact = this.validationPlanArtifact();
+    if (!artifact) return;
 
     this.savingValidationPlan.set(true);
     this.validationPlanService
-      .updateArtifactCustomFields(this.validationPlanArtifact.id, this.validationPlanValues())
+      .updateArtifactCustomFields(artifact.id, this.validationPlanValues())
       .subscribe({
         next: (updated) => {
-          this.validationPlanArtifact = updated;
+          this.validationPlanArtifact.set(updated);
           this.validationPlanValues.set(updated.customFieldValues ?? {});
           this.savingValidationPlan.set(false);
         },
@@ -689,6 +910,9 @@ export class LifecycleProjectDetail {
       });
   }
 
+  // ---------------------------------------------------------------------------
+  // Export / Import
+  // ---------------------------------------------------------------------------
   protected exportProject(): void {
     const p = this.project();
     if (!p) return;
@@ -750,32 +974,16 @@ export class LifecycleProjectDetail {
       });
   }
 
-  private loadTestProtocolsData(projectId: string, phases: TestPhase[]) {
-    phases.forEach((phase) => {
-      this.testProtocolService.getOrCreateArtifact(projectId, phase).subscribe({
-        next: (artifact) => {
-          this.testProtocolArtifacts[phase] = artifact;
-          this.testProtocolValues.update((prev) => ({
-            ...prev,
-            [phase]: (artifact.customFieldValues as Record<string, unknown>) || {},
-          }));
-        },
-      });
-
-      const schemaName = `csv.test_protocol.${phase}`;
-      this.customFieldsService.getSchemaByName(schemaName).subscribe({
-        next: (schema) => this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: schema })),
-        error: () => this.testProtocolSchemas.update((prev) => ({ ...prev, [phase]: null })),
-      });
-    });
-  }
-
+  // ---------------------------------------------------------------------------
+  // Test Protocol Custom Fields
+  // ---------------------------------------------------------------------------
   protected onTestProtocolValuesChanged(phase: string, values: Record<string, unknown>) {
     this.testProtocolValues.update((prev) => ({ ...prev, [phase]: values }));
   }
 
   protected saveTestProtocolFields(phase: string) {
-    const artifact = this.testProtocolArtifacts[phase];
+    const artifacts = this.testProtocolArtifacts();
+    const artifact = artifacts[phase];
     if (!artifact) return;
 
     this.savingTestProtocols.update((prev) => ({ ...prev, [phase]: true }));
@@ -783,7 +991,7 @@ export class LifecycleProjectDetail {
 
     this.testProtocolService.updateArtifactCustomFields(artifact.id, currentValues).subscribe({
       next: (updated) => {
-        this.testProtocolArtifacts[phase] = updated;
+        this.testProtocolArtifacts.update((prev) => ({ ...prev, [phase]: updated }));
         this.testProtocolValues.update((prev) => ({
           ...prev,
           [phase]: (updated.customFieldValues as Record<string, unknown>) || {},
@@ -794,29 +1002,9 @@ export class LifecycleProjectDetail {
     });
   }
 
-  private loadFsCsData(projectId: string, types: FsCsRequirementType[]) {
-    this.fsCsService.getOrCreateArtifact(projectId).subscribe({
-      next: (artifact) => {
-        this.fsCsArtifact = artifact;
-        const currentVals =
-          (artifact.customFieldValues as Record<string, Record<string, unknown>>) || {};
-        this.fsCsValues.set(currentVals);
-      },
-    });
-
-    types.forEach((type) => {
-      const schemaName = `csv.spec.${type.toLowerCase()}`;
-      this.customFieldsService.getSchemaByName(schemaName).subscribe({
-        next: (schema) => {
-          this.fsCsSchemas.update((prev) => ({ ...prev, [type]: schema }));
-        },
-        error: () => {
-          this.fsCsSchemas.update((prev) => ({ ...prev, [type]: null }));
-        },
-      });
-    });
-  }
-
+  // ---------------------------------------------------------------------------
+  // FS/CS Custom Fields
+  // ---------------------------------------------------------------------------
   protected onFsCsValuesChanged(type: string, values: Record<string, unknown>) {
     this.fsCsValues.update((prev) => ({
       ...prev,
@@ -825,14 +1013,15 @@ export class LifecycleProjectDetail {
   }
 
   protected saveFsCsFields(type: string) {
-    if (!this.fsCsArtifact) return;
+    const artifact = this.fsCsArtifact();
+    if (!artifact) return;
 
     this.savingFsCs.update((prev) => ({ ...prev, [type]: true }));
     const currentAllValues = this.fsCsValues();
 
-    this.fsCsService.updateArtifactCustomFields(this.fsCsArtifact.id, currentAllValues).subscribe({
+    this.fsCsService.updateArtifactCustomFields(artifact.id, currentAllValues).subscribe({
       next: (updated) => {
-        this.fsCsArtifact = updated;
+        this.fsCsArtifact.set(updated);
         this.fsCsValues.set(
           (updated.customFieldValues as Record<string, Record<string, unknown>>) ?? {},
         );
@@ -844,6 +1033,9 @@ export class LifecycleProjectDetail {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // PDF
+  // ---------------------------------------------------------------------------
   protected editPdf(templateCode: string): void {
     this.router.navigate(['/pdf-templates/editor'], {
       queryParams: { templateName: templateCode },
@@ -882,53 +1074,53 @@ export class LifecycleProjectDetail {
       const fsCsMap = new Map<string, { code: number; reqType: string }>();
       const riskMap = new Map<string, number>();
 
+      const ursArtifact = this.ursArtifact();
+      const fsCsArtifact = this.fsCsArtifact();
+      const riskId = this.riskAnalysisArtifactId();
+
       if (
         (templateCode.startsWith('csv.spec.') ||
           templateCode === 'csv.risk_analysis_artifact' ||
           templateCode.startsWith('csv.test_protocol.')) &&
-        this.ursArtifact
+        ursArtifact
       ) {
-        const allUrs = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
+        const allUrs = await firstValueFrom(this.ursService.loadRequirements(ursArtifact.id));
         allUrs.forEach((u) => ursMap.set(u.id, u.code));
       }
 
       if (
         (templateCode === 'csv.risk_analysis_artifact' ||
           templateCode.startsWith('csv.test_protocol.')) &&
-        this.fsCsArtifact
+        fsCsArtifact
       ) {
         const allFsCs = await firstValueFrom(
-          this.fsCsService.loadRequirements(this.fsCsArtifact.id),
+          this.fsCsService.loadRequirements(fsCsArtifact.id),
         );
         allFsCs.forEach((f) => fsCsMap.set(f.id, { code: f.code, reqType: f.reqType }));
       }
 
-      if (templateCode.startsWith('csv.test_protocol.') && this.riskAnalysisArtifactId) {
-        const allRisks = await firstValueFrom(
-          this.riskService.loadItems(this.riskAnalysisArtifactId),
-        );
+      if (templateCode.startsWith('csv.test_protocol.') && riskId) {
+        const allRisks = await firstValueFrom(this.riskService.loadItems(riskId));
         allRisks.forEach((r) => riskMap.set(r.id, r.code));
       }
 
-      if (templateCode === 'csv.urs_artifact' && this.ursArtifact) {
-        items = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
-        customFields = this.ursArtifact.customFieldValues || {};
-      } else if (templateCode.startsWith('csv.spec.') && this.fsCsArtifact && fsCsType) {
+      if (templateCode === 'csv.urs_artifact' && ursArtifact) {
+        items = await firstValueFrom(this.ursService.loadRequirements(ursArtifact.id));
+        customFields = ursArtifact.customFieldValues || {};
+      } else if (templateCode.startsWith('csv.spec.') && fsCsArtifact && fsCsType) {
         const specs = await firstValueFrom(
-          this.fsCsService.loadRequirements(this.fsCsArtifact.id, fsCsType as FsCsRequirementType),
+          this.fsCsService.loadRequirements(fsCsArtifact.id, fsCsType as FsCsRequirementType),
         );
         items = specs.map((s) => ({
           ...s,
           traceUrs: (s.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
         }));
         customFields =
-          (this.fsCsArtifact.customFieldValues as Record<string, Record<string, unknown>>)?.[
+          (fsCsArtifact.customFieldValues as Record<string, Record<string, unknown>>)?.[
             fsCsType
           ] || {};
-      } else if (templateCode === 'csv.risk_analysis_artifact' && this.riskAnalysisArtifactId) {
-        const riskItems = await firstValueFrom(
-          this.riskService.loadItems(this.riskAnalysisArtifactId),
-        );
+      } else if (templateCode === 'csv.risk_analysis_artifact' && riskId) {
+        const riskItems = await firstValueFrom(this.riskService.loadItems(riskId));
         items = riskItems.map((r) => ({
           ...r,
           traceUrs: (r.traceUrsIds || []).map((id) => ({ id, code: ursMap.get(id) || null })),
@@ -937,12 +1129,14 @@ export class LifecycleProjectDetail {
             return { id, code: fsCs?.code || null, reqType: fsCs?.reqType || null };
           }),
         }));
-      } else if (templateCode === 'csv.validation_plan' && this.validationPlanArtifact) {
-        // Validation plan has no items list, just properties
-        items = [];
-        customFields = this.validationPlanArtifact.customFieldValues || {};
+      } else if (templateCode === 'csv.validation_plan') {
+        const vpArtifact = this.validationPlanArtifact();
+        if (vpArtifact) {
+          items = [];
+          customFields = vpArtifact.customFieldValues || {};
+        }
       } else if (templateCode.startsWith('csv.test_protocol.') && testPhase) {
-        const testArtifact = this.testProtocolArtifacts[testPhase];
+        const testArtifact = this.testProtocolArtifacts()[testPhase];
         if (testArtifact) {
           const verifications = await firstValueFrom(
             this.testProtocolService.loadVerifications(testArtifact.id),
@@ -1027,6 +1221,9 @@ export class LifecycleProjectDetail {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Navigation
+  // ---------------------------------------------------------------------------
   protected goToAttachments(): void {
     const p = this.project();
     if (p) {
@@ -1034,6 +1231,9 @@ export class LifecycleProjectDetail {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Publish Results
+  // ---------------------------------------------------------------------------
   protected openPublishDialog(phase: string): void {
     this.publishDialogPhase.set(phase as TestPhase);
     this.publishDialogVisible.set(true);
@@ -1071,27 +1271,29 @@ export class LifecycleProjectDetail {
       const fsCsMap = new Map<string, { code: number; reqType: string }>();
       const riskMap = new Map<string, number>();
 
-      if (this.ursArtifact) {
-        const allUrs = await firstValueFrom(this.ursService.loadRequirements(this.ursArtifact.id));
+      const ursArtifact = this.ursArtifact();
+      const fsCsArtifact = this.fsCsArtifact();
+      const riskId = this.riskAnalysisArtifactId();
+
+      if (ursArtifact) {
+        const allUrs = await firstValueFrom(this.ursService.loadRequirements(ursArtifact.id));
         allUrs.forEach((u) => ursMap.set(u.id, u.code));
       }
 
-      if (this.fsCsArtifact) {
+      if (fsCsArtifact) {
         const allFsCs = await firstValueFrom(
-          this.fsCsService.loadRequirements(this.fsCsArtifact.id),
+          this.fsCsService.loadRequirements(fsCsArtifact.id),
         );
         allFsCs.forEach((f) => fsCsMap.set(f.id, { code: f.code, reqType: f.reqType }));
       }
 
-      if (this.riskAnalysisArtifactId) {
-        const allRisks = await firstValueFrom(
-          this.riskService.loadItems(this.riskAnalysisArtifactId),
-        );
+      if (riskId) {
+        const allRisks = await firstValueFrom(this.riskService.loadItems(riskId));
         allRisks.forEach((r) => riskMap.set(r.id, r.code));
       }
 
       // Build items — same logic as generatePdf test_protocol branch
-      const testArtifact = this.testProtocolArtifacts[phase];
+      const testArtifact = this.testProtocolArtifacts()[phase];
       let items: unknown[] = [];
       let customFields: Record<string, unknown> = {};
 
@@ -1167,7 +1369,7 @@ export class LifecycleProjectDetail {
       const actionUrl = `/csv/lifecycle/${p.id}/attachments`;
 
       // 1. Create the attachment record in Supabase first
-      const attachment = await firstValueFrom(
+      await firstValueFrom(
         this.attachmentsService.createAttachment({
           lifecycleProjectId: p.id,
           name,
@@ -1208,6 +1410,9 @@ export class LifecycleProjectDetail {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Navigation helpers
+  // ---------------------------------------------------------------------------
   protected goBack(): void {
     this.router.navigate(['/csv/lifecycle']);
   }
@@ -1219,12 +1424,13 @@ export class LifecycleProjectDetail {
   protected getTypeSeverity(
     type: string,
   ): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
-    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> = {
-      validation: 'info',
-      periodic_review: 'success',
-      revalidation: 'warn',
-      retirement: 'danger',
-    };
+    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> =
+      {
+        validation: 'info',
+        periodic_review: 'success',
+        revalidation: 'warn',
+        retirement: 'danger',
+      };
     return map[type] ?? 'secondary';
   }
 
@@ -1235,12 +1441,13 @@ export class LifecycleProjectDetail {
   protected getStatusSeverity(
     status: string,
   ): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
-    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> = {
-      draft: 'secondary',
-      in_progress: 'info',
-      completed: 'success',
-      cancelled: 'danger',
-    };
+    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> =
+      {
+        draft: 'secondary',
+        in_progress: 'info',
+        completed: 'success',
+        cancelled: 'danger',
+      };
     return map[status] ?? 'secondary';
   }
 }

@@ -18,7 +18,11 @@ export class ValidationPlanService {
   /**
    * Get existing validation plan artifact or create one for the given lifecycle project.
    */
-  getOrCreateArtifact(lifecycleProjectId: string): Observable<ValidationPlanArtifact> {
+  /**
+   * Fetch an existing Validation Plan artifact for the given lifecycle project.
+   * Returns null if the artifact hasn't been created yet (never throws for 404).
+   */
+  getArtifact(lifecycleProjectId: string): Observable<ValidationPlanArtifact | null> {
     return defer(async () =>
       this.supabase
         .from('csv_validation_plan_artifacts')
@@ -26,29 +30,40 @@ export class ValidationPlanService {
         .eq('lifecycle_project_id', lifecycleProjectId)
         .maybeSingle(),
     ).pipe(
-      switchMap(({ data, error }) => {
+      map(({ data, error }) => {
         if (error) throw error;
-        if (data) return [this.artifactToDomain(data as ValidationPlanArtifactDto)];
-
-        // Create new artifact
-        const tenantId = this.orgService.activeOrganizationId();
-        return defer(async () =>
-          this.supabase
-            .from('csv_validation_plan_artifacts')
-            .insert({
-              tenant_id: tenantId,
-              lifecycle_project_id: lifecycleProjectId,
-            })
-            .select('*')
-            .single(),
-        ).pipe(
-          map(({ data: created, error: insertError }) => {
-            if (insertError) throw insertError;
-            return this.artifactToDomain(created as ValidationPlanArtifactDto);
-          }),
-        );
+        return data ? this.artifactToDomain(data as ValidationPlanArtifactDto) : null;
       }),
-      catchError((error) => this.handleError(error, 'Get/Create Validation Plan Artifact')),
+      catchError((error) => this.handleError(error, 'Get Validation Plan Artifact')),
+    );
+  }
+
+  /**
+   * Create a new Validation Plan artifact for the given lifecycle project.
+   */
+  createArtifact(lifecycleProjectId: string): Observable<ValidationPlanArtifact> {
+    const tenantId = this.orgService.activeOrganizationId();
+    return defer(async () =>
+      this.supabase
+        .from('csv_validation_plan_artifacts')
+        .insert({ tenant_id: tenantId, lifecycle_project_id: lifecycleProjectId })
+        .select('*')
+        .single(),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return this.artifactToDomain(data as ValidationPlanArtifactDto);
+      }),
+      catchError((error) => this.handleError(error, 'Create Validation Plan Artifact')),
+    );
+  }
+
+  /** @deprecated Use getArtifact() + createArtifact() separately. */
+  getOrCreateArtifact(lifecycleProjectId: string): Observable<ValidationPlanArtifact> {
+    return this.getArtifact(lifecycleProjectId).pipe(
+      switchMap((artifact) =>
+        artifact ? [artifact] : this.createArtifact(lifecycleProjectId),
+      ),
     );
   }
 

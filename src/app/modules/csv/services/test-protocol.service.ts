@@ -24,7 +24,11 @@ export class TestProtocolService {
 
   // ─── Artifacts (Protocols) ──────────────────────────
 
-  getOrCreateArtifact(lifecycleProjectId: string, phase: TestPhase): Observable<TestProtocol> {
+  /**
+   * Fetch an existing Test Protocol artifact for the given lifecycle project + phase.
+   * Returns null if the artifact hasn't been created yet (never throws for 404).
+   */
+  getArtifact(lifecycleProjectId: string, phase: TestPhase): Observable<TestProtocol | null> {
     return defer(async () =>
       this.supabase
         .from('csv_test_protocols')
@@ -33,29 +37,40 @@ export class TestProtocolService {
         .eq('phase', phase)
         .maybeSingle(),
     ).pipe(
-      switchMap(({ data, error }) => {
+      map(({ data, error }) => {
         if (error) throw error;
-        if (data) return [this.protocolToDomain(data as TestProtocolDto)];
-
-        const tenantId = this.orgService.activeOrganizationId();
-        return defer(async () =>
-          this.supabase
-            .from('csv_test_protocols')
-            .insert({
-              tenant_id: tenantId,
-              lifecycle_project_id: lifecycleProjectId,
-              phase,
-            })
-            .select('*')
-            .single(),
-        ).pipe(
-          map(({ data: created, error: insertError }) => {
-            if (insertError) throw insertError;
-            return this.protocolToDomain(created as TestProtocolDto);
-          }),
-        );
+        return data ? this.protocolToDomain(data as TestProtocolDto) : null;
       }),
-      catchError((error) => this.handleError(error, `Get/Create Test Protocol - ${phase}`)),
+      catchError((error) => this.handleError(error, `Get Test Protocol - ${phase}`)),
+    );
+  }
+
+  /**
+   * Create a new Test Protocol artifact for the given lifecycle project + phase.
+   */
+  createArtifact(lifecycleProjectId: string, phase: TestPhase): Observable<TestProtocol> {
+    const tenantId = this.orgService.activeOrganizationId();
+    return defer(async () =>
+      this.supabase
+        .from('csv_test_protocols')
+        .insert({ tenant_id: tenantId, lifecycle_project_id: lifecycleProjectId, phase })
+        .select('*')
+        .single(),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return this.protocolToDomain(data as TestProtocolDto);
+      }),
+      catchError((error) => this.handleError(error, `Create Test Protocol - ${phase}`)),
+    );
+  }
+
+  /** @deprecated Use getArtifact() + createArtifact() separately. */
+  getOrCreateArtifact(lifecycleProjectId: string, phase: TestPhase): Observable<TestProtocol> {
+    return this.getArtifact(lifecycleProjectId, phase).pipe(
+      switchMap((artifact) =>
+        artifact ? [artifact] : this.createArtifact(lifecycleProjectId, phase),
+      ),
     );
   }
 

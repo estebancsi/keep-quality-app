@@ -35,7 +35,11 @@ export class FsCsService {
   /**
    * Get existing artifact or create one for the given lifecycle project.
    */
-  getOrCreateArtifact(lifecycleProjectId: string): Observable<FsCsArtifact> {
+  /**
+   * Fetch an existing FS/CS artifact for the given lifecycle project.
+   * Returns null if the artifact hasn't been created yet (never throws for 404).
+   */
+  getArtifact(lifecycleProjectId: string): Observable<FsCsArtifact | null> {
     return defer(async () =>
       this.supabase
         .from('csv_fs_cs_artifacts')
@@ -43,29 +47,40 @@ export class FsCsService {
         .eq('lifecycle_project_id', lifecycleProjectId)
         .maybeSingle(),
     ).pipe(
-      switchMap(({ data, error }) => {
+      map(({ data, error }) => {
         if (error) throw error;
-        if (data) return [this.artifactToDomain(data as FsCsArtifactDto)];
-
-        // Create new artifact
-        const tenantId = this.orgService.activeOrganizationId();
-        return defer(async () =>
-          this.supabase
-            .from('csv_fs_cs_artifacts')
-            .insert({
-              tenant_id: tenantId,
-              lifecycle_project_id: lifecycleProjectId,
-            })
-            .select('*')
-            .single(),
-        ).pipe(
-          map(({ data: created, error: insertError }) => {
-            if (insertError) throw insertError;
-            return this.artifactToDomain(created as FsCsArtifactDto);
-          }),
-        );
+        return data ? this.artifactToDomain(data as FsCsArtifactDto) : null;
       }),
-      catchError((error) => this.handleError(error, 'Get/Create FS/CS Artifact')),
+      catchError((error) => this.handleError(error, 'Get FS/CS Artifact')),
+    );
+  }
+
+  /**
+   * Create a new FS/CS artifact for the given lifecycle project.
+   */
+  createArtifact(lifecycleProjectId: string): Observable<FsCsArtifact> {
+    const tenantId = this.orgService.activeOrganizationId();
+    return defer(async () =>
+      this.supabase
+        .from('csv_fs_cs_artifacts')
+        .insert({ tenant_id: tenantId, lifecycle_project_id: lifecycleProjectId })
+        .select('*')
+        .single(),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return this.artifactToDomain(data as FsCsArtifactDto);
+      }),
+      catchError((error) => this.handleError(error, 'Create FS/CS Artifact')),
+    );
+  }
+
+  /** @deprecated Use getArtifact() + createArtifact() separately. */
+  getOrCreateArtifact(lifecycleProjectId: string): Observable<FsCsArtifact> {
+    return this.getArtifact(lifecycleProjectId).pipe(
+      switchMap((artifact) =>
+        artifact ? [artifact] : this.createArtifact(lifecycleProjectId),
+      ),
     );
   }
 
