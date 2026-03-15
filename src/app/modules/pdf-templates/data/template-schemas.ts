@@ -468,4 +468,130 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
       },
     ],
   },
+  'csv.roles_permissions_matrix': {
+    organization: { id: 'org-123', name: 'Sample Organization' },
+    lifecycle: {
+      code: 1001,
+      type: 'validation',
+      status: 'in_progress',
+      startDate: '2024-01-01',
+      targetCompletionDate: '2024-12-31',
+      actualCompletionDate: '2024-11-30',
+      assignedTo: 'user-1',
+      assignedToName: 'John Doe',
+      notes: 'Sample notes',
+    },
+    system: {
+      name: 'Sample System',
+      code: 'SYS-001',
+      version: '1.0.0',
+      description: 'Sample description',
+      category: '4',
+    },
+    items: [
+      {
+        id: 'mapping-1',
+        lifecycleProjectId: 'project-1',
+        roleId: 'role-1',
+        permissionId: 'perm-1',
+        expectedAccess: 'Granted',
+        roleName: 'System Admin',
+        permissionName: 'Edit Users',
+      },
+    ],
+    roles: [
+      {
+        id: 'role-1',
+        lifecycleProjectId: 'project-1',
+        name: 'System Admin',
+        description: 'Admin role',
+      },
+    ],
+    permissions: [
+      {
+        id: 'perm-1',
+        lifecycleProjectId: 'project-1',
+        name: 'Edit Users',
+        description: 'Can edit users',
+      },
+    ],
+    mappings: [
+      {
+        id: 'mapping-1',
+        lifecycleProjectId: 'project-1',
+        roleId: 'role-1',
+        permissionId: 'perm-1',
+        expectedAccess: 'Granted',
+      },
+    ],
+  },
+  'csv.roles_permissions_testing': {
+    organization: { id: 'org-123', name: 'Sample Organization' },
+    lifecycle: {
+      code: 1001,
+      type: 'validation',
+      status: 'in_progress',
+      startDate: '2024-01-01',
+      targetCompletionDate: '2024-12-31',
+      actualCompletionDate: '2024-11-30',
+      assignedTo: 'user-1',
+      assignedToName: 'John Doe',
+      notes: 'Sample notes',
+    },
+    system: {
+      name: 'Sample System',
+      code: 'SYS-001',
+      version: '1.0.0',
+      description: 'Sample description',
+      category: '4',
+    },
+    items: [
+      {
+        id: 'test-1',
+        lifecycleProjectId: 'project-1',
+        mappingId: 'mapping-1',
+        actualResult: 'User was able to edit successfully.',
+        attachmentUrls: [{ url: 'https://example.com/evidence.png', name: 'evidence.png' }],
+        status: 'Pass',
+        roleName: 'System Admin',
+        permissionName: 'Edit Users',
+        expectedAccess: 'Granted',
+      },
+    ],
+    roles: [
+      {
+        id: 'role-1',
+        lifecycleProjectId: 'project-1',
+        name: 'System Admin',
+        description: 'Admin role',
+      },
+    ],
+    permissions: [
+      {
+        id: 'perm-1',
+        lifecycleProjectId: 'project-1',
+        name: 'Edit Users',
+        description: 'Can edit users',
+      },
+    ],
+    mappings: [
+      {
+        id: 'mapping-1',
+        lifecycleProjectId: 'project-1',
+        roleId: 'role-1',
+        permissionId: 'perm-1',
+        expectedAccess: 'Granted',
+      },
+    ],
+    testResults: [
+      {
+        id: 'test-1',
+        lifecycleProjectId: 'project-1',
+        mappingId: 'mapping-1',
+        actualResult: 'User was able to edit successfully.',
+        attachmentUrls: [{ url: 'https://example.com/evidence.png', name: 'evidence.png' }],
+        status: 'Pass',
+      },
+    ],
+  },
 };

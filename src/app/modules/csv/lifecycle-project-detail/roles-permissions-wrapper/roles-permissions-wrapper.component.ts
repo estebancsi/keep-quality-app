@@ -16,6 +16,18 @@ import {
 } from '../../roles-permissions.interface';
 import { tap, catchError } from 'rxjs/operators';
 import { EMPTY, firstValueFrom } from 'rxjs';
+import { AttachmentCache } from '@/core/interfaces/attachment.interface';
+import { ButtonModule } from 'primeng/button';
+import { Router } from '@angular/router';
+import { ReportsService, PDFOptions } from '@/shared/services/reports.service';
+import { PdfTemplatesService } from '@/modules/pdf-templates/services/pdf-templates.service';
+import { OrganizationService } from '@/auth/organization.service';
+import { LifecycleProject } from '../../lifecycle-project.interface';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { FormsModule } from '@angular/forms';
+import { LifecycleAttachmentsService } from '../../services/lifecycle-attachments.service';
+import { PdfJobService } from '@/shared/services/pdf-job.service';
 
 @Component({
   selector: 'app-csv-roles-permissions-wrapper',
@@ -28,6 +40,10 @@ import { EMPTY, firstValueFrom } from 'rxjs';
     CsvPermissionsListComponent,
     CsvRolePermissionMatrixComponent,
     CsvRolePermissionTestingComponent,
+    ButtonModule,
+    DialogModule,
+    InputTextModule,
+    FormsModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -81,6 +97,23 @@ import { EMPTY, firstValueFrom } from 'rxjs';
             </p-tabpanel>
 
             <p-tabpanel value="mapping">
+              <div class="flex justify-end mb-4 gap-2">
+                <p-button
+                  label="Edit PDF"
+                  icon="pi pi-pencil"
+                  [outlined]="true"
+                  size="small"
+                  (click)="editPdf('csv.roles_permissions_matrix')"
+                />
+                <p-button
+                  label="Generate PDF"
+                  icon="pi pi-file-pdf"
+                  [outlined]="true"
+                  size="small"
+                  [loading]="generatingPdf() === 'csv.roles_permissions_matrix'"
+                  (click)="generatePdf('csv.roles_permissions_matrix')"
+                />
+              </div>
               <app-csv-role-permission-matrix
                 [projectId]="projectId()"
                 [roles]="roles()"
@@ -91,6 +124,24 @@ import { EMPTY, firstValueFrom } from 'rxjs';
             </p-tabpanel>
 
             <p-tabpanel value="testing">
+              <div class="flex justify-end mb-4 gap-2">
+                <p-button
+                  label="Edit PDF"
+                  icon="pi pi-pencil"
+                  [outlined]="true"
+                  size="small"
+                  (click)="editPdf('csv.roles_permissions_testing')"
+                />
+                <p-button
+                  label="Publish Results"
+                  icon="pi pi-cloud-upload"
+                  [outlined]="true"
+                  size="small"
+                  [loading]="publishingResults()"
+                  (click)="openPublishDialog()"
+                  pTooltip="Publish test results as PDF attachment"
+                />
+              </div>
               <app-csv-role-permission-testing
                 [projectId]="projectId()"
                 [roles]="roles()"
@@ -104,15 +155,64 @@ import { EMPTY, firstValueFrom } from 'rxjs';
             </p-tabpanel>
           </p-tabpanels>
         </p-tabs>
+
+        <p-dialog
+          header="Publish Test Results"
+          [(visible)]="publishDialogVisible"
+          [modal]="true"
+          [style]="{ width: '450px' }"
+        >
+          <div class="flex flex-col gap-4 py-4">
+            <p class="m-0 text-surface-600 dark:text-surface-400">
+              The test results will be published as a PDF attachment for this lifecycle project.
+              Once published, a notification will be sent.
+            </p>
+            <div class="flex flex-col gap-2">
+              <label for="attachment-name" class="font-semibold text-sm">Document Name</label>
+              <input
+                pInputText
+                id="attachment-name"
+                [(ngModel)]="attachmentName"
+                class="w-full"
+                placeholder="e.g. Test Results Roles & Permissions"
+              />
+            </div>
+          </div>
+          <ng-template pTemplate="footer">
+            <div class="flex justify-end gap-2">
+              <p-button
+                label="Cancel"
+                icon="pi pi-times"
+                [text]="true"
+                severity="secondary"
+                (click)="publishDialogVisible.set(false)"
+              />
+              <p-button
+                label="Publish"
+                icon="pi pi-cloud-upload"
+                (click)="publishTestResults()"
+                [disabled]="!attachmentName.trim()"
+                [loading]="publishingResults()"
+              />
+            </div>
+          </ng-template>
+        </p-dialog>
       }
     </div>
   `,
 })
 export class CsvRolesPermissionsWrapperComponent {
   readonly projectId = input.required<string>();
+  readonly project = input<LifecycleProject>();
 
   private service = inject(RolesPermissionsService);
   private messageService = inject(MessageService);
+  private reportsService = inject(ReportsService);
+  private pdfTemplatesService = inject(PdfTemplatesService);
+  private router = inject(Router);
+  private orgService = inject(OrganizationService);
+  private attachmentsService = inject(LifecycleAttachmentsService);
+  private pdfJobService = inject(PdfJobService);
 
   readonly roles = signal<CsvRole[]>([]);
   readonly permissions = signal<CsvPermission[]>([]);
@@ -124,6 +224,11 @@ export class CsvRolesPermissionsWrapperComponent {
   readonly permissionsLoading = signal(false);
   readonly loadingResults = signal(false);
   readonly savingResult = signal(false);
+  readonly generatingPdf = signal<string | null>(null);
+
+  readonly publishDialogVisible = signal(false);
+  readonly publishingResults = signal(false);
+  protected attachmentName = 'Test Results Roles & Permissions';
 
   constructor() {
     effect(() => {
@@ -376,7 +481,7 @@ export class CsvRolesPermissionsWrapperComponent {
   async onSaveTestResult(event: {
     mappingId: string;
     actualResult: string;
-    attachmentUrls: any[];
+    attachmentUrls: AttachmentCache[];
     status: 'Pass' | 'Fail' | 'Pending';
   }) {
     this.savingResult.set(true);
@@ -417,6 +522,229 @@ export class CsvRolesPermissionsWrapperComponent {
       });
     } finally {
       this.savingResult.set(false);
+    }
+  }
+
+  // --- PDF Generation ---
+  protected editPdf(templateCode: string): void {
+    this.router.navigate(['/pdf-templates/editor'], {
+      queryParams: { templateName: templateCode },
+    });
+  }
+
+  protected async generatePdf(templateCode: string): Promise<void> {
+    this.generatingPdf.set(templateCode);
+    try {
+      const template = await firstValueFrom(
+        this.pdfTemplatesService.getTemplateByName(templateCode),
+      );
+      if (!template) throw new Error('Template not found');
+
+      let items: unknown[] = [];
+      const roles = this.roles();
+      const perms = this.permissions();
+
+      if (templateCode === 'csv.roles_permissions_matrix') {
+        const mappings = this.mappings();
+        items = mappings.map((m) => ({
+          ...m,
+          roleName: roles.find((r) => r.id === m.roleId)?.name,
+          permissionName: perms.find((p) => p.id === m.permissionId)?.name,
+        }));
+      }
+
+      const org = this.orgService.activeOrganization();
+      const p = this.project();
+      const systemInfo = p?.system
+        ? {
+            name: p.system.name,
+            code: p.system.code,
+            version: p.system.version,
+            description: p.system.description,
+            category: p.system.categoryCode?.toString(),
+          }
+        : {};
+
+      const payload = {
+        organization: org ? { id: org.id, name: org.name } : null,
+        lifecycle: p
+          ? {
+              code: p.code,
+              type: p.type,
+              status: p.status,
+              startDate: p.startDate,
+              targetCompletionDate: p.targetCompletionDate,
+              actualCompletionDate: p.actualCompletionDate,
+              assignedTo: p.assignedTo,
+              assignedToName: p.assignedToName,
+              notes: p.notes,
+            }
+          : null,
+        system: systemInfo,
+        items,
+        roles,
+        permissions: perms,
+        mappings: this.mappings(),
+        testResults: this.testResults(),
+      };
+
+      const pdfOptions = template.options
+        ? {
+            ...template.options,
+            title: systemInfo.name ? `${systemInfo.name} - ${templateCode}` : templateCode,
+            marginTop: template.options.marginTop + 'mm',
+            marginBottom: template.options.marginBottom + 'mm',
+            marginLeft: template.options.marginLeft + 'mm',
+            marginRight: template.options.marginRight + 'mm',
+          }
+        : { title: templateCode };
+
+      const blob = await firstValueFrom(
+        this.reportsService.renderRaw({
+          html: template.html,
+          css: template.css,
+          header: template.header,
+          footer: template.footer,
+          options: pdfOptions as PDFOptions,
+          data: payload,
+        }),
+      );
+
+      const url = URL.createObjectURL(blob);
+      this.router.navigate(['/pdf-viewer'], { queryParams: { src: url } });
+    } catch (err) {
+      console.error('Failed to generate PDF', err);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to generate PDF',
+      });
+    } finally {
+      this.generatingPdf.set(null);
+    }
+  }
+
+  // --- Publishing Test Results ---
+  protected openPublishDialog(): void {
+    const p = this.project();
+    this.publishDialogVisible.set(true);
+  }
+
+  protected async publishTestResults(): Promise<void> {
+    const p = this.project();
+    if (!p) return;
+
+    const name = this.attachmentName.trim();
+    if (!name) return;
+
+    this.publishingResults.set(true);
+    this.publishDialogVisible.set(false);
+
+    try {
+      const templateCode = 'csv.roles_permissions_testing';
+      const template = await firstValueFrom(
+        this.pdfTemplatesService.getTemplateByName(templateCode),
+      );
+      if (!template) throw new Error('Template not found');
+
+      const roles = this.roles();
+      const perms = this.permissions();
+      const testResults = this.testResults();
+      const mappings = this.mappings();
+      const items = testResults.map((tr) => {
+        const m = mappings.find((mapped) => mapped.id === tr.mappingId);
+        return {
+          ...tr,
+          roleName: m ? roles.find((r) => r.id === m.roleId)?.name : '',
+          permissionName: m ? perms.find((p) => p.id === m.permissionId)?.name : '',
+          expectedAccess: m?.expectedAccess,
+        };
+      });
+
+      const org = this.orgService.activeOrganization();
+      const systemInfo = p.system
+        ? {
+            name: p.system.name,
+            code: p.system.code,
+            version: p.system.version,
+            description: p.system.description,
+            category: p.system.categoryCode?.toString(),
+          }
+        : {};
+
+      const payload = {
+        organization: org ? { id: org.id, name: org.name } : null,
+        lifecycle: {
+          code: p.code,
+          type: p.type,
+          status: p.status,
+          startDate: p.startDate,
+          targetCompletionDate: p.targetCompletionDate,
+          actualCompletionDate: p.actualCompletionDate,
+          assignedTo: p.assignedTo,
+          assignedToName: p.assignedToName,
+          notes: p.notes,
+        },
+        system: systemInfo,
+        items,
+        roles,
+        permissions: perms,
+        mappings: this.mappings(),
+        testResults: this.testResults(),
+      };
+
+      const pdfOptions = template.options
+        ? {
+            ...template.options,
+            title: systemInfo.name ? `${systemInfo.name} - ${templateCode}` : templateCode,
+            marginTop: template.options.marginTop + 'mm',
+            marginBottom: template.options.marginBottom + 'mm',
+            marginLeft: template.options.marginLeft + 'mm',
+            marginRight: template.options.marginRight + 'mm',
+          }
+        : { title: templateCode };
+
+      const fileUuid = crypto.randomUUID();
+      const objectName = `lifecycle-projects/${p.id}/attachments/${fileUuid}.pdf`;
+      const actionUrl = `/csv/lifecycle/${p.id}/attachments`;
+
+      await firstValueFrom(
+        this.attachmentsService.createAttachment({
+          lifecycleProjectId: p.id,
+          name,
+          objectName,
+          status: 'publishing',
+          contentType: 'application/pdf',
+        }),
+      );
+
+      await firstValueFrom(
+        this.pdfJobService.submitPdfJob({
+          object_name: objectName,
+          action_url: actionUrl,
+          html: template.html,
+          css: template.css,
+          header: template.header,
+          footer: template.footer,
+          options: pdfOptions as unknown as Record<string, unknown>,
+          data: payload as unknown as Record<string, unknown>,
+        }),
+      );
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Publishing',
+        detail: `"${name}" is being published. You will receive a notification when it's ready.`,
+      });
+    } catch (err) {
+      console.error('Failed to publish test results', err);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to publish test results.',
+      });
+    } finally {
+      this.publishingResults.set(false);
     }
   }
 }

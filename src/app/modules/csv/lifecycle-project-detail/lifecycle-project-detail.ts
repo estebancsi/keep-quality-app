@@ -414,7 +414,7 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
               <p-tabpanel value="roles-permissions">
                 @defer {
                   <div class="mt-4">
-                    <app-csv-roles-permissions-wrapper [projectId]="p.id" />
+                    <app-csv-roles-permissions-wrapper [projectId]="p.id" [project]="p" />
                   </div>
                 } @placeholder {
                   <div class="py-8 text-center text-surface-400">Loading...</div>
