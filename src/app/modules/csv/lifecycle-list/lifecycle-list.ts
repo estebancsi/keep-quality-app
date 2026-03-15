@@ -81,15 +81,6 @@ import { UsersService } from '@/modules/organization/users/users.service';
             pTooltip="Refresh"
             class="mr-2"
           />
-          <p-button
-            label="System Impact Template"
-            icon="pi pi-shield"
-            severity="secondary"
-            [outlined]="true"
-            (click)="goToSystemImpactTemplate()"
-            pTooltip="Manage system impact questionnaire template"
-            aria-label="Manage System Impact questionnaire template"
-          />
         </ng-template>
         <ng-template #end>
           <div class="flex items-center gap-3">
@@ -462,10 +453,6 @@ export class LifecycleList {
 
   protected navigateToDetail(project: LifecycleProject): void {
     this.router.navigate(['/csv/lifecycle', project.id]);
-  }
-
-  protected goToSystemImpactTemplate(): void {
-    this.router.navigate(['/csv/system-impact-template']);
   }
 
   protected getOwnerName(userId: string | null): string {

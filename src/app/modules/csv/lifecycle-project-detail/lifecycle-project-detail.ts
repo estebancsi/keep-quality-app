@@ -204,11 +204,16 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
                     />
                   } @else if (systemImpactNoTemplate()) {
                     <div class="flex flex-col items-center gap-4 py-12">
-                      <i class="pi pi-exclamation-triangle text-4xl text-warning-400" aria-hidden="true"></i>
-                      <p class="text-surface-700 dark:text-surface-300 font-semibold text-lg m-0">No questionnaire template found</p>
+                      <i
+                        class="pi pi-exclamation-triangle text-4xl text-warning-400"
+                        aria-hidden="true"
+                      ></i>
+                      <p class="text-surface-700 dark:text-surface-300 font-semibold text-lg m-0">
+                        No questionnaire template found
+                      </p>
                       <p class="text-surface-500 m-0 text-sm text-center max-w-md">
-                        Set up the organization's System Impact questionnaire template first,
-                        then return here to initialize this artifact.
+                        Set up the organization's System Impact questionnaire template first, then
+                        return here to initialize this artifact.
                       </p>
                       <p-button
                         label="Manage Template"
@@ -885,7 +890,7 @@ export class LifecycleProjectDetail {
   }
 
   protected goToSystemImpactTemplate(): void {
-    this.router.navigate(['/csv/system-impact-template']);
+    this.router.navigate(['/csv/parameters/system-impact-template']);
   }
 
   protected initializeUrs(): void {
@@ -902,7 +907,6 @@ export class LifecycleProjectDetail {
       error: () => this.initializingUrs.set(false),
     });
   }
-
 
   protected initializeValidationPlan(): void {
     const p = this.project();

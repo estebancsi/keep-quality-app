@@ -42,6 +42,17 @@ export class AppMenu {
           icon: 'pi pi-fw pi-desktop',
           routerLink: ['/csv'],
         },
+        {
+          label: 'Parameters',
+          icon: 'pi pi-fw pi-sliders-h',
+          items: [
+            {
+              label: 'System Impact',
+              icon: 'pi pi-fw pi-shield',
+              routerLink: ['/csv/parameters/system-impact-template'],
+            },
+          ],
+        },
       ],
     },
     {
