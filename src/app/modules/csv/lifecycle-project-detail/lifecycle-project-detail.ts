@@ -20,6 +20,7 @@ import {
   LIFECYCLE_PROJECT_STATUS_OPTIONS,
 } from '../lifecycle-project.interface';
 import { UrsRequirementsTable } from './components/urs-requirements-table';
+import { SystemImpactFormComponent } from './components/system-impact-form';
 import { FsCsRequirementsTable } from './components/fs-cs-requirements-table';
 import { RiskAnalysisTableComponent } from './components/risk-analysis-table';
 import { FsCsArtifact, FsCsRequirementType } from '../fs-cs.interface';
@@ -29,6 +30,9 @@ import { CustomFieldsService } from '@/shared/custom-fields/service/custom-field
 import { CustomFieldsSchema } from '@/shared/custom-fields/types/custom-fields.types';
 import { UrsService } from '../services/urs.service';
 import { UrsArtifact } from '../urs.interface';
+import { SystemImpactService } from '../services/system-impact.service';
+import { SystemImpactTemplateService } from '../services/system-impact-template.service';
+import { SystemImpactArtifact } from '../system-impact.interface';
 import {
   ArtifactImportExportService,
   ExportData,
@@ -72,6 +76,7 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
     PublishTestResultsDialogComponent,
     TooltipModule,
     ArtifactInitPlaceholderComponent,
+    SystemImpactFormComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -151,6 +156,10 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
         @if (showUrsTab()) {
           <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)">
             <p-tablist>
+              <p-tab value="system-impact">
+                <i class="pi pi-shield mr-2"></i>
+                System Impact
+              </p-tab>
               <p-tab value="urs">
                 <i class="pi pi-file-edit mr-2"></i>
                 User Requirements (URS)
@@ -185,6 +194,42 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
               </p-tab>
             </p-tablist>
             <p-tabpanels>
+              <!-- System Impact Determination Tab -->
+              <p-tabpanel value="system-impact">
+                @defer {
+                  @if (systemImpactArtifact()) {
+                    <app-system-impact-form
+                      [artifact]="systemImpactArtifact()!"
+                      (saved)="onSystemImpactSaved($event)"
+                    />
+                  } @else if (systemImpactNoTemplate()) {
+                    <div class="flex flex-col items-center gap-4 py-12">
+                      <i class="pi pi-exclamation-triangle text-4xl text-warning-400" aria-hidden="true"></i>
+                      <p class="text-surface-700 dark:text-surface-300 font-semibold text-lg m-0">No questionnaire template found</p>
+                      <p class="text-surface-500 m-0 text-sm text-center max-w-md">
+                        Set up the organization's System Impact questionnaire template first,
+                        then return here to initialize this artifact.
+                      </p>
+                      <p-button
+                        label="Manage Template"
+                        icon="pi pi-cog"
+                        [outlined]="true"
+                        (click)="goToSystemImpactTemplate()"
+                        aria-label="Go to System Impact template management"
+                      />
+                    </div>
+                  } @else {
+                    <app-artifact-init-placeholder
+                      label="System Impact Determination"
+                      [initializing]="initializingSystemImpact()"
+                      (initialize)="initializeSystemImpact()"
+                    />
+                  }
+                } @placeholder {
+                  <div class="py-8 text-center text-surface-400">Loading...</div>
+                }
+              </p-tabpanel>
+
               <!-- URS Tab -->
               <p-tabpanel value="urs">
                 @if (ursArtifact()) {
@@ -537,6 +582,8 @@ export class LifecycleProjectDetail {
   private readonly pdfJobService = inject(PdfJobService);
   private readonly attachmentsService = inject(LifecycleAttachmentsService);
   private readonly messageService = inject(MessageService);
+  private readonly systemImpactService = inject(SystemImpactService);
+  private readonly systemImpactTemplateService = inject(SystemImpactTemplateService);
 
   protected readonly project = signal<LifecycleProject | null>(null);
   protected readonly loading = signal(true);
@@ -558,6 +605,12 @@ export class LifecycleProjectDetail {
 
   /** Saving state for custom fields */
   protected readonly savingCustomFields = signal(false);
+
+  // System Impact Determination State
+  protected readonly systemImpactArtifact = signal<SystemImpactArtifact | null>(null);
+  protected readonly initializingSystemImpact = signal(false);
+  /** true when artifact is null AND the org has no template set up */
+  protected readonly systemImpactNoTemplate = signal(false);
 
   /** The URS artifact — null means not initialized yet */
   protected readonly ursArtifact = signal<UrsArtifact | null>(null);
@@ -602,7 +655,7 @@ export class LifecycleProjectDetail {
   protected readonly publishDialogVisible = signal(false);
   protected readonly publishDialogPhase = signal<TestPhase>('iq');
 
-  protected readonly activeTab = signal<string>('urs');
+  protected readonly activeTab = signal<string>('system-impact');
 
   protected readonly rendererContext = computed(() => {
     const p = this.project();
@@ -638,6 +691,8 @@ export class LifecycleProjectDetail {
     this.loading.set(true);
 
     // Reset artifact signals so tabs show the initialize placeholder
+    this.systemImpactArtifact.set(null);
+    this.systemImpactNoTemplate.set(false);
     this.ursArtifact.set(null);
     this.validationPlanArtifact.set(null);
     this.fsCsArtifact.set(null);
@@ -700,6 +755,12 @@ export class LifecycleProjectDetail {
   // Eager artifact fetch for existing projects
   // ---------------------------------------------------------------------------
   private loadExistingArtifacts(projectId: string): void {
+    this.systemImpactService.getArtifact(projectId).subscribe({
+      next: (a) => {
+        if (a) this.systemImpactArtifact.set(a);
+      },
+    });
+
     this.ursService.getArtifact(projectId).subscribe({
       next: (a) => {
         if (a) {
@@ -790,6 +851,43 @@ export class LifecycleProjectDetail {
   // ---------------------------------------------------------------------------
   // Per-tab Initialization (on-demand artifact creation)
   // ---------------------------------------------------------------------------
+
+  protected initializeSystemImpact(): void {
+    const p = this.project();
+    if (!p || this.initializingSystemImpact()) return;
+
+    this.initializingSystemImpact.set(true);
+
+    // Fetch the org-wide template first — we need to snapshot its questions
+    this.systemImpactTemplateService.getTemplate().subscribe({
+      next: (template) => {
+        if (!template || template.questions.length === 0) {
+          // No template configured — show the "no template" state instead
+          this.systemImpactNoTemplate.set(true);
+          this.initializingSystemImpact.set(false);
+          return;
+        }
+
+        this.systemImpactService.createArtifact(p.id, template.questions).subscribe({
+          next: (artifact) => {
+            this.systemImpactArtifact.set(artifact);
+            this.initializingSystemImpact.set(false);
+          },
+          error: () => this.initializingSystemImpact.set(false),
+        });
+      },
+      error: () => this.initializingSystemImpact.set(false),
+    });
+  }
+
+  protected onSystemImpactSaved(artifact: SystemImpactArtifact): void {
+    this.systemImpactArtifact.set(artifact);
+  }
+
+  protected goToSystemImpactTemplate(): void {
+    this.router.navigate(['/csv/system-impact-template']);
+  }
+
   protected initializeUrs(): void {
     const p = this.project();
     if (!p || this.initializingUrs()) return;
@@ -804,6 +902,7 @@ export class LifecycleProjectDetail {
       error: () => this.initializingUrs.set(false),
     });
   }
+
 
   protected initializeValidationPlan(): void {
     const p = this.project();

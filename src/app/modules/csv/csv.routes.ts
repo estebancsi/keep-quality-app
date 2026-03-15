@@ -21,4 +21,11 @@ export default [
     loadComponent: () =>
       import('./lifecycle-attachments/lifecycle-attachments').then((m) => m.LifecycleAttachments),
   },
+  {
+    path: 'system-impact-template',
+    loadComponent: () =>
+      import('./system-impact-template/system-impact-template.component').then(
+        (m) => m.SystemImpactTemplateComponent,
+      ),
+  },
 ] as Routes;
