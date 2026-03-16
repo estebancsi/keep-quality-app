@@ -30,6 +30,37 @@ export const TEMPLATE_SCHEMAS: Record<string, unknown> = {
       isActive: true,
     },
   },
+  'csv.system_impact_artifact': {
+    organization: { id: 'org-123', name: 'Sample Organization' },
+    lifecycle: {
+      code: 1001,
+      type: 'validation',
+      status: 'in_progress',
+      startDate: '2024-01-01',
+      targetCompletionDate: '2024-12-31',
+      actualCompletionDate: '2024-11-30',
+      assignedTo: 'user-1',
+      assignedToName: 'John Doe',
+      notes: 'Sample notes',
+    },
+    system: {
+      name: 'Sample System',
+      code: 'SYS-001',
+      version: '1.0.0',
+      description: 'Sample description',
+      category: '4',
+    },
+    gxpImpact: true,
+    items: [
+      {
+        code: 'Q1',
+        position: 1,
+        text: 'Does the system process GxP data?',
+        answer: true,
+        justification: 'The system stores electronic records.',
+      },
+    ],
+  },
   'csv.urs_artifact': {
     organization: { id: 'org-123', name: 'Sample Organization' },
     lifecycle: {

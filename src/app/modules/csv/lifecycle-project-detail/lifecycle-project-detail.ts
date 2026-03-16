@@ -200,7 +200,10 @@ import { ArtifactInitPlaceholderComponent } from './components/artifact-init-pla
                   @if (systemImpactArtifact()) {
                     <app-system-impact-form
                       [artifact]="systemImpactArtifact()!"
+                      [generatingPdf]="generatingPdf() === 'csv.system_impact_artifact'"
                       (saved)="onSystemImpactSaved($event)"
+                      (editPdf)="editPdf('csv.system_impact_artifact')"
+                      (generatePdf)="generatePdf('csv.system_impact_artifact')"
                     />
                   } @else if (systemImpactNoTemplate()) {
                     <div class="flex flex-col items-center gap-4 py-12">
@@ -1163,9 +1166,9 @@ export class LifecycleProjectDetail {
       if (!template) {
         throw new Error('Template not found');
       }
-
       let items: unknown[] = [];
       let customFields: Record<string, unknown> = {};
+      let gxpImpact: boolean | null | undefined;
 
       const p = this.project();
       const systemInfo = p?.system
@@ -1189,6 +1192,7 @@ export class LifecycleProjectDetail {
       if (
         (templateCode.startsWith('csv.spec.') ||
           templateCode === 'csv.risk_analysis_artifact' ||
+          templateCode === 'csv.system_impact_artifact' ||
           templateCode.startsWith('csv.test_protocol.')) &&
         ursArtifact
       ) {
@@ -1213,6 +1217,19 @@ export class LifecycleProjectDetail {
       if (templateCode === 'csv.urs_artifact' && ursArtifact) {
         items = await firstValueFrom(this.ursService.loadRequirements(ursArtifact.id));
         customFields = ursArtifact.customFieldValues || {};
+      } else if (templateCode === 'csv.system_impact_artifact' && this.systemImpactArtifact()) {
+        const impactArtifact = this.systemImpactArtifact()!;
+        items = impactArtifact.questionsSnapshot
+          .sort((a, b) => a.position - b.position)
+          .map((q) => {
+            const answerObj = impactArtifact.answers[q.code];
+            return {
+              ...q,
+              answer: answerObj?.answer,
+              justification: answerObj?.justification,
+            };
+          });
+        gxpImpact = impactArtifact.gxpImpact;
       } else if (templateCode.startsWith('csv.spec.') && fsCsArtifact && fsCsType) {
         const specs = await firstValueFrom(
           this.fsCsService.loadRequirements(fsCsArtifact.id, fsCsType as FsCsRequirementType),
@@ -1275,7 +1292,7 @@ export class LifecycleProjectDetail {
 
       const currentOrg = this.organizationService.activeOrganization();
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         organization: currentOrg ? { id: currentOrg.id, name: currentOrg.name } : null,
         lifecycle: p
           ? {
@@ -1295,16 +1312,33 @@ export class LifecycleProjectDetail {
         items,
       };
 
+      if (gxpImpact !== undefined) {
+        payload['gxpImpact'] = gxpImpact;
+      }
+
+      let friendlyName = templateCode;
+      if (templateCode === 'csv.system_impact_artifact') {
+        friendlyName = 'System Impact';
+      } else if (templateCode === 'csv.urs_artifact') {
+        friendlyName = 'User Requirements Specification';
+      } else if (templateCode === 'csv.validation_plan') {
+        friendlyName = 'Validation Plan';
+      } else if (templateCode === 'csv.risk_analysis_artifact') {
+        friendlyName = 'Risk Analysis';
+      } else if (templateCode.startsWith('csv.spec.')) {
+        friendlyName = 'Specification';
+      }
+
       const pdfOptions = template.options
         ? {
             ...template.options,
-            title: systemInfo.name ? `${systemInfo.name} - ${templateCode}` : templateCode,
+            title: systemInfo.name ? `${systemInfo.name} - ${friendlyName}` : friendlyName,
             marginTop: template.options.marginTop + 'mm',
             marginBottom: template.options.marginBottom + 'mm',
             marginLeft: template.options.marginLeft + 'mm',
             marginRight: template.options.marginRight + 'mm',
           }
-        : { title: templateCode };
+        : { title: friendlyName };
 
       const blob = await firstValueFrom(
         this.reportsService.renderRaw({

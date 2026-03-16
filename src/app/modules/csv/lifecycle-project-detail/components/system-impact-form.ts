@@ -56,14 +56,35 @@ const ANSWER_OPTIONS = [
             if questions have changed organization-wide.
           </p>
         </div>
-        <p-button
-          label="Save Answers"
-          icon="pi pi-save"
-          size="small"
-          [loading]="saving()"
-          (click)="saveAnswers()"
-          aria-label="Save System Impact answers"
-        />
+        <div class="flex items-center gap-2">
+          <p-button
+            icon="pi pi-pencil"
+            label="Edit PDF"
+            [outlined]="true"
+            size="small"
+            pTooltip="Edit"
+            (click)="editPdf.emit()"
+            aria-label="Edit PDF Template"
+          />
+          <p-button
+            icon="pi pi-file-pdf"
+            label="Generate PDF"
+            [outlined]="true"
+            size="small"
+            pTooltip="Generate PDF"
+            [loading]="generatingPdf()"
+            (click)="generatePdf.emit()"
+            aria-label="Generate System Impact PDF"
+          />
+          <p-button
+            label="Save Answers"
+            icon="pi pi-save"
+            size="small"
+            [loading]="saving()"
+            (click)="saveAnswers()"
+            aria-label="Save System Impact answers"
+          />
+        </div>
       </div>
 
       <p-divider />
@@ -158,6 +179,10 @@ export class SystemImpactFormComponent implements OnInit {
 
   /** Emits the updated artifact after a successful save */
   readonly saved = output<SystemImpactArtifact>();
+
+  readonly generatingPdf = input(false);
+  readonly editPdf = output<void>();
+  readonly generatePdf = output<void>();
 
   protected readonly saving = signal(false);
   protected readonly reloading = signal(false);
@@ -268,7 +293,8 @@ export class SystemImpactFormComponent implements OnInit {
   protected confirmReloadSnapshot(): void {
     this.confirmationService.confirm({
       header: 'Reload Template?',
-      message: 'This will update the questions to the latest organization-wide template. Answers to matching questions will be preserved, but answers to removed questions will be lost. Do you want to continue?',
+      message:
+        'This will update the questions to the latest organization-wide template. Answers to matching questions will be preserved, but answers to removed questions will be lost. Do you want to continue?',
       acceptIcon: 'pi pi-refresh',
       rejectIcon: 'pi pi-times',
       acceptButtonStyleClass: 'p-button-danger p-button-sm',
